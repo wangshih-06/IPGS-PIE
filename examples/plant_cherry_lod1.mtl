@@ -1,0 +1,45 @@
+# PlantSim materials
+newmtl bark
+Ka 0.0900 0.0600 0.0400
+Kd 0.4500 0.3000 0.2000
+Ks 0.0500 0.0400 0.0300
+Ns 8.0000
+d 1.0
+illum 2
+
+newmtl leaf_0
+Ka 0.0600 0.1040 0.0520
+Kd 0.3000 0.5200 0.2600
+Ks 0.1000 0.1200 0.0800
+Ns 24.0000
+d 1.0
+illum 2
+# double-sided
+
+newmtl leaf_1
+Ka 0.0800 0.1200 0.0580
+Kd 0.4000 0.6000 0.2900
+Ks 0.1000 0.1200 0.0800
+Ns 24.0000
+d 1.0
+illum 2
+# double-sided
+
+newmtl leaf_2
+Ka 0.0520 0.0900 0.0460
+Kd 0.2600 0.4500 0.2300
+Ks 0.1000 0.1200 0.0800
+Ns 24.0000
+d 1.0
+illum 2
+# double-sided
+
+newmtl leaf_3
+Ka 0.0960 0.1280 0.0640
+Kd 0.4800 0.6400 0.3200
+Ks 0.1000 0.1200 0.0800
+Ns 24.0000
+d 1.0
+illum 2
+# double-sided
+

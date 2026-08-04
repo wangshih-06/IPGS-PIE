@@ -1,0 +1,49 @@
+{
+    "format": "PlantSim Marching Cubes Mesh Summary",
+    "grid": {
+        "dimensions": [
+            65,
+            116,
+            35
+        ],
+        "sampleCount": 263900,
+        "spacing": [
+            0.0494573712348938,
+            0.049594759941101074,
+            0.048573341220617294
+        ]
+    },
+    "isoLevel": 0.5,
+    "iterations": 4,
+    "jointSmoothness": 0.6499999761581421,
+    "mesh": {
+        "activeVoxelCount": 9354,
+        "boundaryEdgeCount": 0,
+        "bounds": {
+            "maximum": [
+                1.5634039640426636,
+                5.125919818878174,
+                0.9161513447761536
+            ],
+            "minimum": [
+                -1.2924503087997437,
+                -0.21895045042037964,
+                -0.4162732660770416
+            ]
+        },
+        "cubeLocalVertexCount": 37448,
+        "insideVoxelCount": 9762,
+        "manifoldEdgeCount": 28092,
+        "orientationFlipped": false,
+        "signedVolume": 1.6905862129483191,
+        "surfaceArea": 15.587712882301545,
+        "triangleCount": 18728,
+        "vertexCount": 9362,
+        "voxelCount": 250240,
+        "watertight": true
+    },
+    "plantNodeCount": 66,
+    "preset": "cherry",
+    "seed": 20260804,
+    "version": 1
+}

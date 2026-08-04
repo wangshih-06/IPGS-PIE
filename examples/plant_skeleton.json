@@ -1,0 +1,290 @@
+{
+    "plant": {
+        "age": 2.5,
+        "growthState": "active",
+        "id": 1001,
+        "lifeStage": "vegetative",
+        "name": "Week 4 Demo Tree",
+        "species": "Prunus serrulata"
+    },
+    "schema": "plantsim.skeleton",
+    "skeleton": {
+        "branches": [
+            {
+                "active": true,
+                "age": 2,
+                "childNodeId": 1,
+                "id": 0,
+                "parentNodeId": 0,
+                "stiffness": 1
+            },
+            {
+                "active": true,
+                "age": 1.5,
+                "childNodeId": 2,
+                "id": 1,
+                "parentNodeId": 1,
+                "stiffness": 1
+            },
+            {
+                "active": true,
+                "age": 1.1,
+                "childNodeId": 3,
+                "id": 2,
+                "parentNodeId": 1,
+                "stiffness": 1
+            },
+            {
+                "active": true,
+                "age": 0.8,
+                "childNodeId": 4,
+                "id": 3,
+                "parentNodeId": 2,
+                "stiffness": 1
+            },
+            {
+                "active": true,
+                "age": 0.7,
+                "childNodeId": 5,
+                "id": 4,
+                "parentNodeId": 2,
+                "stiffness": 1
+            }
+        ],
+        "leaves": [
+            {
+                "active": true,
+                "age": 0.35,
+                "direction": [
+                    -0.611577,
+                    0.764471,
+                    0.203859
+                ],
+                "health": 0.96,
+                "id": 0,
+                "parentNodeId": 3,
+                "position": [
+                    -0.65,
+                    1.25,
+                    0.05
+                ],
+                "size": [
+                    0.22,
+                    0.1
+                ]
+            },
+            {
+                "active": true,
+                "age": 0.28,
+                "direction": [
+                    0.699127,
+                    0.649189,
+                    0.299626
+                ],
+                "health": 0.93,
+                "id": 1,
+                "parentNodeId": 4,
+                "position": [
+                    0.62,
+                    2,
+                    0.18
+                ],
+                "size": [
+                    0.24,
+                    0.11
+                ]
+            },
+            {
+                "active": true,
+                "age": 0.18,
+                "direction": [
+                    0.100995,
+                    0.989748,
+                    -0.100995
+                ],
+                "health": 0.99,
+                "id": 2,
+                "parentNodeId": 5,
+                "position": [
+                    0.05,
+                    2.3,
+                    -0.08
+                ],
+                "size": [
+                    0.2,
+                    0.09
+                ]
+            }
+        ],
+        "nodes": [
+            {
+                "active": true,
+                "age": 2.5,
+                "depth": 0,
+                "direction": [
+                    0,
+                    1,
+                    0
+                ],
+                "generation": 0,
+                "id": 0,
+                "length": 0,
+                "parentId": -1,
+                "position": [
+                    0,
+                    0,
+                    0
+                ],
+                "radius": 0.18,
+                "type": "stem"
+            },
+            {
+                "active": true,
+                "age": 2,
+                "depth": 1,
+                "direction": [
+                    0,
+                    1,
+                    0
+                ],
+                "generation": 0,
+                "id": 1,
+                "length": 0.8,
+                "parentId": 0,
+                "position": [
+                    0,
+                    0.8,
+                    0
+                ],
+                "radius": 0.15,
+                "type": "stem"
+            },
+            {
+                "active": true,
+                "age": 1.5,
+                "depth": 2,
+                "direction": [
+                    0,
+                    1,
+                    0
+                ],
+                "generation": 0,
+                "id": 2,
+                "length": 0.75,
+                "parentId": 1,
+                "position": [
+                    0,
+                    1.55,
+                    0
+                ],
+                "radius": 0.11,
+                "type": "stem"
+            },
+            {
+                "active": true,
+                "age": 0.8,
+                "depth": 3,
+                "direction": [
+                    0.785438,
+                    0.573974,
+                    0.231604
+                ],
+                "generation": 1,
+                "id": 4,
+                "length": 0.79,
+                "parentId": 2,
+                "position": [
+                    0.62,
+                    2,
+                    0.18
+                ],
+                "radius": 0.065,
+                "type": "branch"
+            },
+            {
+                "active": true,
+                "age": 0.7,
+                "depth": 3,
+                "direction": [
+                    0.070102,
+                    0.991439,
+                    -0.11016
+                ],
+                "generation": 1,
+                "id": 5,
+                "length": 0.76,
+                "parentId": 2,
+                "position": [
+                    0.05,
+                    2.3,
+                    -0.08
+                ],
+                "radius": 0.07,
+                "type": "bud"
+            },
+            {
+                "active": true,
+                "age": 1.1,
+                "depth": 2,
+                "direction": [
+                    -0.781408,
+                    0.621119,
+                    0.060108
+                ],
+                "generation": 1,
+                "id": 3,
+                "length": 0.76,
+                "parentId": 1,
+                "position": [
+                    -0.65,
+                    1.25,
+                    0.05
+                ],
+                "radius": 0.07,
+                "type": "branch"
+            }
+        ],
+        "rootNodeId": 0,
+        "roots": [
+            {
+                "active": true,
+                "age": 2.2,
+                "depth": 1,
+                "direction": [
+                    -0.675145,
+                    -0.727079,
+                    0.124642
+                ],
+                "id": 0,
+                "length": 0.72,
+                "parentNodeId": 0,
+                "position": [
+                    0,
+                    0,
+                    0
+                ],
+                "radius": 0.1
+            },
+            {
+                "active": true,
+                "age": 2,
+                "depth": 1,
+                "direction": [
+                    0.578147,
+                    -0.788383,
+                    -0.210235
+                ],
+                "id": 1,
+                "length": 0.68,
+                "parentNodeId": 0,
+                "position": [
+                    0,
+                    0,
+                    0
+                ],
+                "radius": 0.09
+            }
+        ]
+    },
+    "version": 1
+}

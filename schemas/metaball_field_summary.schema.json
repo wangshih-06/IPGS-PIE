@@ -1,0 +1,73 @@
+﻿{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://plantsim.local/schemas/metaball_field_summary.schema.json",
+  "title": "PlantSim Metaball Field Summary",
+  "type": "object",
+  "required": [
+    "format", "version", "preset", "plantNodeCount",
+    "nodeSourceCount", "segmentSourceCount", "isoThreshold",
+    "jointSmoothness", "influenceScale", "bounds", "grid"
+  ],
+  "properties": {
+    "format": { "const": "PlantSim Metaball Field Summary" },
+    "version": { "type": "integer", "minimum": 1 },
+    "preset": { "type": "string" },
+    "iterations": { "type": "integer", "minimum": 0 },
+    "seed": { "type": "integer", "minimum": 0 },
+    "plantNodeCount": { "type": "integer", "minimum": 1 },
+    "nodeSourceCount": { "type": "integer", "minimum": 0 },
+    "segmentSourceCount": { "type": "integer", "minimum": 0 },
+    "isoThreshold": { "type": "number", "exclusiveMinimum": 0 },
+    "jointSmoothness": { "type": "number", "minimum": 0, "maximum": 1 },
+    "influenceScale": { "type": "number", "exclusiveMinimum": 0 },
+    "bounds": {
+      "type": "object",
+      "required": ["minimum", "maximum"],
+      "properties": {
+        "minimum": { "$ref": "#/$defs/vec3" },
+        "maximum": { "$ref": "#/$defs/vec3" }
+      },
+      "additionalProperties": false
+    },
+    "grid": {
+      "type": "object",
+      "required": [
+        "dimensions", "spacing", "requestedSpacing", "spacingAdjusted",
+        "sampleCount", "minimumValue", "maximumValue", "meanValue",
+        "samplesAtOrAboveThreshold"
+      ],
+      "properties": {
+        "dimensions": {
+          "type": "array",
+          "prefixItems": [
+            { "type": "integer", "minimum": 2 },
+            { "type": "integer", "minimum": 2 },
+            { "type": "integer", "minimum": 2 }
+          ],
+          "items": false
+        },
+        "spacing": { "$ref": "#/$defs/vec3" },
+        "requestedSpacing": { "type": "number", "exclusiveMinimum": 0 },
+        "spacingAdjusted": { "type": "boolean" },
+        "sampleCount": { "type": "integer", "minimum": 8 },
+        "minimumValue": { "type": "number", "minimum": 0 },
+        "maximumValue": { "type": "number", "minimum": 0 },
+        "meanValue": { "type": "number", "minimum": 0 },
+        "samplesAtOrAboveThreshold": { "type": "integer", "minimum": 0 }
+      },
+      "additionalProperties": false
+    }
+  },
+  "$defs": {
+    "vec3": {
+      "type": "array",
+      "prefixItems": [
+        { "type": "number" },
+        { "type": "number" },
+        { "type": "number" }
+      ],
+      "items": false
+    }
+  },
+  "additionalProperties": false
+}

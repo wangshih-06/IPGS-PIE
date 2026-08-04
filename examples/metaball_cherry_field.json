@@ -1,0 +1,44 @@
+{
+    "bounds": {
+        "maximum": [
+            1.712882161140442,
+            5.280247211456299,
+            1.076190710067749
+        ],
+        "minimum": [
+            -1.4523894786834717,
+            -0.4231500029563904,
+            -0.57530277967453
+        ]
+    },
+    "format": "PlantSim Metaball Field Summary",
+    "grid": {
+        "dimensions": [
+            65,
+            116,
+            35
+        ],
+        "maximumValue": 5.2466959953308105,
+        "meanValue": 0.09414233120460058,
+        "minimumValue": 0,
+        "requestedSpacing": 0.05000000074505806,
+        "sampleCount": 263900,
+        "samplesAtOrAboveThreshold": 14125,
+        "spacing": [
+            0.0494573712348938,
+            0.049594759941101074,
+            0.048573341220617294
+        ],
+        "spacingAdjusted": false
+    },
+    "influenceScale": 2,
+    "isoThreshold": 0.5,
+    "iterations": 4,
+    "jointSmoothness": 0.6499999761581421,
+    "nodeSourceCount": 66,
+    "plantNodeCount": 66,
+    "preset": "cherry",
+    "seed": 20260804,
+    "segmentSourceCount": 65,
+    "version": 1
+}

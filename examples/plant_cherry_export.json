@@ -1,0 +1,134 @@
+{
+    "files": [
+        "E:/基于物理约束与隐式曲面的智能植物生长模拟与交互式编辑系统/examples/plant_cherry_lod0.obj",
+        "E:/基于物理约束与隐式曲面的智能植物生长模拟与交互式编辑系统/examples/plant_cherry_lod1.obj",
+        "E:/基于物理约束与隐式曲面的智能植物生长模拟与交互式编辑系统/examples/plant_cherry_lod2.obj"
+    ],
+    "format": "PlantSim Plant Model Export Summary",
+    "isoLevel": 0.5,
+    "iterations": 4,
+    "leaves": {
+        "boundNodeCount": 45,
+        "leafCount": 99,
+        "lengthSegments": 5,
+        "paletteSize": 4,
+        "triangleCount": 1980
+    },
+    "lod": [
+        {
+            "cellSize": 0,
+            "level": 0,
+            "mesh": {
+                "boundaryEdgeCount": 0,
+                "bounds": {
+                    "maximum": [
+                        1.5572420358657837,
+                        5.118925094604492,
+                        0.9074845314025879
+                    ],
+                    "minimum": [
+                        -1.2875016927719116,
+                        -0.21704044938087463,
+                        -0.4089060425758362
+                    ]
+                },
+                "manifoldEdgeCount": 28092,
+                "signedVolume": 1.6817635781138787,
+                "surfaceArea": 15.42220430271118,
+                "triangleCount": 18728,
+                "vertexCount": 9362,
+                "watertight": true
+            }
+        },
+        {
+            "cellSize": 0.07500000298023224,
+            "level": 1,
+            "mesh": {
+                "boundaryEdgeCount": 21,
+                "bounds": {
+                    "maximum": [
+                        1.5542936325073242,
+                        5.117048263549805,
+                        0.9074845314025879
+                    ],
+                    "minimum": [
+                        -1.2852003574371338,
+                        -0.2120072841644287,
+                        -0.40822452306747437
+                    ]
+                },
+                "manifoldEdgeCount": 9642,
+                "signedVolume": 1.6534910211127405,
+                "surfaceArea": 15.286778445879463,
+                "triangleCount": 6445,
+                "vertexCount": 3216,
+                "watertight": false
+            }
+        },
+        {
+            "cellSize": 0.11999999731779099,
+            "level": 2,
+            "mesh": {
+                "boundaryEdgeCount": 28,
+                "bounds": {
+                    "maximum": [
+                        1.5516871213912964,
+                        5.112944602966309,
+                        0.893555760383606
+                    ],
+                    "minimum": [
+                        -1.2783231735229492,
+                        -0.19444173574447632,
+                        -0.4054799973964691
+                    ]
+                },
+                "manifoldEdgeCount": 3871,
+                "signedVolume": 1.5874689919073774,
+                "surfaceArea": 15.058544898056425,
+                "triangleCount": 2602,
+                "vertexCount": 1294,
+                "watertight": false
+            }
+        }
+    ],
+    "materials": [
+        "bark",
+        "leaf_0",
+        "leaf_1",
+        "leaf_2",
+        "leaf_3"
+    ],
+    "plantNodeCount": 66,
+    "preset": "cherry",
+    "rawBranchMesh": {
+        "boundaryEdgeCount": 0,
+        "bounds": {
+            "maximum": [
+                1.5634039640426636,
+                5.125919818878174,
+                0.9161513447761536
+            ],
+            "minimum": [
+                -1.2924503087997437,
+                -0.21895045042037964,
+                -0.4162732660770416
+            ]
+        },
+        "manifoldEdgeCount": 28092,
+        "signedVolume": 1.6905862129483191,
+        "surfaceArea": 15.587712882301545,
+        "triangleCount": 18728,
+        "vertexCount": 9362,
+        "watertight": true
+    },
+    "seed": 20260804,
+    "smoothing": {
+        "iterations": 8,
+        "junctionExtraIterations": 6,
+        "junctionRegionCount": 13,
+        "lambda": 0.5,
+        "mu": -0.5299999713897705,
+        "taubinCompensation": true
+    },
+    "version": 1
+}

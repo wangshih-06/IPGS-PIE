@@ -1,0 +1,106 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://plantsim.local/schemas/marching_cubes_mesh.schema.json",
+  "title": "PlantSim Marching Cubes Mesh",
+  "description": "第7周 Marching Cubes 提取的等值面三角网格，供前端渲染使用。positions/normals 为按 xyz 展平的浮点数组，indices 每 3 个整数构成一个三角形。",
+  "type": "object",
+  "required": ["format", "version", "meta", "positions", "normals", "indices"],
+  "properties": {
+    "format": { "const": "PlantSim Marching Cubes Mesh" },
+    "version": { "type": "integer", "minimum": 1 },
+    "meta": {
+      "type": "object",
+      "required": [
+        "preset", "iterations", "seed", "plantNodeCount",
+        "isoLevel", "jointSmoothness", "grid", "mesh"
+      ],
+      "properties": {
+        "preset": { "type": "string" },
+        "iterations": { "type": "integer", "minimum": 0 },
+        "seed": { "type": "integer", "minimum": 0 },
+        "plantNodeCount": { "type": "integer", "minimum": 1 },
+        "isoLevel": { "type": "number", "exclusiveMinimum": 0 },
+        "jointSmoothness": { "type": "number", "minimum": 0, "maximum": 1 },
+        "grid": {
+          "type": "object",
+          "required": ["dimensions", "spacing", "sampleCount"],
+          "properties": {
+            "dimensions": {
+              "type": "array",
+              "items": { "type": "integer", "minimum": 2 },
+              "minItems": 3,
+              "maxItems": 3
+            },
+            "spacing": { "$ref": "#/$defs/vec3" },
+            "sampleCount": { "type": "integer", "minimum": 8 }
+          },
+          "additionalProperties": false
+        },
+        "mesh": {
+          "type": "object",
+          "required": [
+            "voxelCount", "activeVoxelCount", "insideVoxelCount",
+            "cubeLocalVertexCount", "vertexCount", "triangleCount",
+            "manifoldEdgeCount", "boundaryEdgeCount", "watertight",
+            "orientationFlipped", "signedVolume", "surfaceArea", "bounds"
+          ],
+          "properties": {
+            "voxelCount": { "type": "integer", "minimum": 1 },
+            "activeVoxelCount": { "type": "integer", "minimum": 0 },
+            "insideVoxelCount": { "type": "integer", "minimum": 0 },
+            "cubeLocalVertexCount": { "type": "integer", "minimum": 0 },
+            "vertexCount": { "type": "integer", "minimum": 0 },
+            "triangleCount": { "type": "integer", "minimum": 0 },
+            "manifoldEdgeCount": { "type": "integer", "minimum": 0 },
+            "boundaryEdgeCount": { "type": "integer", "minimum": 0 },
+            "watertight": { "type": "boolean" },
+            "orientationFlipped": { "type": "boolean" },
+            "signedVolume": { "type": "number" },
+            "surfaceArea": { "type": "number", "minimum": 0 },
+            "bounds": {
+              "type": "object",
+              "required": ["minimum", "maximum"],
+              "properties": {
+                "minimum": { "$ref": "#/$defs/vec3" },
+                "maximum": { "$ref": "#/$defs/vec3" }
+              },
+              "additionalProperties": false
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "positions": {
+      "type": "array",
+      "description": "顶点坐标 [x0,y0,z0, x1,y1,z1, ...]，长度 = vertexCount * 3",
+      "items": { "type": "number" },
+      "minItems": 0,
+      "multipleOf": 3
+    },
+    "normals": {
+      "type": "array",
+      "description": "单位外法向量，与 positions 一一对应，长度 = vertexCount * 3",
+      "items": { "type": "number" },
+      "minItems": 0,
+      "multipleOf": 3
+    },
+    "indices": {
+      "type": "array",
+      "description": "三角形索引（0 起），长度 = triangleCount * 3",
+      "items": { "type": "integer", "minimum": 0 },
+      "minItems": 0,
+      "multipleOf": 3
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "vec3": {
+      "type": "array",
+      "items": { "type": "number" },
+      "minItems": 3,
+      "maxItems": 3
+    }
+  }
+}

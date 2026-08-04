@@ -1,0 +1,111 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://plantsim.local/schemas/plant_model_export.schema.json",
+  "title": "PlantSim Plant Model Export Summary",
+  "description": "第8周完整植物模型导出摘要：平滑参数、LOD 统计、叶片统计、材质与输出文件清单。",
+  "type": "object",
+  "required": [
+    "format", "version", "preset", "iterations", "seed", "plantNodeCount",
+    "isoLevel", "smoothing", "rawBranchMesh", "lod", "leaves", "materials", "files"
+  ],
+  "properties": {
+    "format": { "const": "PlantSim Plant Model Export Summary" },
+    "version": { "type": "integer", "minimum": 1 },
+    "preset": { "type": "string" },
+    "iterations": { "type": "integer", "minimum": 0 },
+    "seed": { "type": "integer", "minimum": 0 },
+    "plantNodeCount": { "type": "integer", "minimum": 1 },
+    "isoLevel": { "type": "number", "exclusiveMinimum": 0 },
+    "smoothing": {
+      "type": "object",
+      "required": [
+        "iterations", "lambda", "taubinCompensation", "mu",
+        "junctionRegionCount", "junctionExtraIterations"
+      ],
+      "properties": {
+        "iterations": { "type": "integer", "minimum": 0 },
+        "lambda": { "type": "number", "exclusiveMinimum": 0, "maximum": 1 },
+        "taubinCompensation": { "type": "boolean" },
+        "mu": { "type": "number", "maximum": 0 },
+        "junctionRegionCount": { "type": "integer", "minimum": 0 },
+        "junctionExtraIterations": { "type": "integer", "minimum": 0 }
+      },
+      "additionalProperties": false
+    },
+    "rawBranchMesh": { "$ref": "#/$defs/meshStats" },
+    "lod": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["level", "cellSize", "mesh"],
+        "properties": {
+          "level": { "type": "integer", "minimum": 0 },
+          "cellSize": { "type": "number", "minimum": 0 },
+          "mesh": { "$ref": "#/$defs/meshStats" }
+        },
+        "additionalProperties": false
+      }
+    },
+    "leaves": {
+      "type": "object",
+      "required": [
+        "leafCount", "boundNodeCount", "triangleCount",
+        "lengthSegments", "paletteSize"
+      ],
+      "properties": {
+        "leafCount": { "type": "integer", "minimum": 0 },
+        "boundNodeCount": { "type": "integer", "minimum": 0 },
+        "triangleCount": { "type": "integer", "minimum": 0 },
+        "lengthSegments": { "type": "integer", "minimum": 2 },
+        "paletteSize": { "type": "integer", "minimum": 1 }
+      },
+      "additionalProperties": false
+    },
+    "materials": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "type": "string" }
+    },
+    "files": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "type": "string" }
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "vec3": {
+      "type": "array",
+      "items": { "type": "number" },
+      "minItems": 3,
+      "maxItems": 3
+    },
+    "meshStats": {
+      "type": "object",
+      "required": [
+        "vertexCount", "triangleCount", "manifoldEdgeCount", "boundaryEdgeCount",
+        "watertight", "signedVolume", "surfaceArea", "bounds"
+      ],
+      "properties": {
+        "vertexCount": { "type": "integer", "minimum": 0 },
+        "triangleCount": { "type": "integer", "minimum": 0 },
+        "manifoldEdgeCount": { "type": "integer", "minimum": 0 },
+        "boundaryEdgeCount": { "type": "integer", "minimum": 0 },
+        "watertight": { "type": "boolean" },
+        "signedVolume": { "type": "number" },
+        "surfaceArea": { "type": "number", "minimum": 0 },
+        "bounds": {
+          "type": "object",
+          "required": ["minimum", "maximum"],
+          "properties": {
+            "minimum": { "$ref": "#/$defs/vec3" },
+            "maximum": { "$ref": "#/$defs/vec3" }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}

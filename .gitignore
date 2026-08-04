@@ -1,0 +1,15 @@
+# CMake / Visual Studio build products
+/build/
+/.vs/
+*.suo
+*.user
+*.VC.db
+
+# Frontend dependencies and generated bundle
+/frontend/node_modules/
+/frontend/dist/
+
+# Local tool configuration and runtime logs
+/.claude/settings.local.json
+/build/run_*.txt
+*.log

@@ -1,0 +1,130 @@
+﻿{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://plantsim.local/schemas/plant_skeleton.schema.json",
+  "title": "PlantSim Skeleton",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "version", "plant", "skeleton"],
+  "properties": {
+    "schema": { "const": "plantsim.skeleton" },
+    "version": { "const": 1 },
+    "plant": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "name", "species", "age", "lifeStage", "growthState"],
+      "properties": {
+        "id": { "type": "integer" },
+        "name": { "type": "string", "minLength": 1 },
+        "species": { "type": "string", "minLength": 1 },
+        "age": { "type": "number", "minimum": 0 },
+        "lifeStage": {
+          "enum": ["seed", "seedling", "vegetative", "mature", "flowering", "dormant", "senescent"]
+        },
+        "growthState": {
+          "enum": ["active", "paused", "dormant", "stressed", "completed"]
+        }
+      }
+    },
+    "skeleton": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["rootNodeId", "nodes", "branches", "leaves", "roots"],
+      "properties": {
+        "rootNodeId": { "type": "integer", "minimum": 0 },
+        "nodes": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/node" }
+        },
+        "branches": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/branch" }
+        },
+        "leaves": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/leaf" }
+        },
+        "roots": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/root" }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "vec2": {
+      "type": "array",
+      "minItems": 2,
+      "maxItems": 2,
+      "items": { "type": "number" }
+    },
+    "vec3": {
+      "type": "array",
+      "minItems": 3,
+      "maxItems": 3,
+      "items": { "type": "number" }
+    },
+    "node": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "parentId", "type", "position", "direction", "radius", "length", "age", "depth", "generation", "active"],
+      "properties": {
+        "id": { "type": "integer", "minimum": 0 },
+        "parentId": { "type": "integer", "minimum": -1 },
+        "type": { "enum": ["stem", "branch", "bud", "root"] },
+        "position": { "$ref": "#/$defs/vec3" },
+        "direction": { "$ref": "#/$defs/vec3" },
+        "radius": { "type": "number", "minimum": 0 },
+        "length": { "type": "number", "minimum": 0 },
+        "age": { "type": "number", "minimum": 0 },
+        "depth": { "type": "integer", "minimum": 0 },
+        "generation": { "type": "integer", "minimum": 0 },
+        "active": { "type": "boolean" }
+      }
+    },
+    "branch": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "parentNodeId", "childNodeId", "age", "stiffness", "active"],
+      "properties": {
+        "id": { "type": "integer", "minimum": 0 },
+        "parentNodeId": { "type": "integer", "minimum": 0 },
+        "childNodeId": { "type": "integer", "minimum": 0 },
+        "age": { "type": "number", "minimum": 0 },
+        "stiffness": { "type": "number", "minimum": 0 },
+        "active": { "type": "boolean" }
+      }
+    },
+    "leaf": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "parentNodeId", "position", "direction", "size", "age", "health", "active"],
+      "properties": {
+        "id": { "type": "integer", "minimum": 0 },
+        "parentNodeId": { "type": "integer", "minimum": 0 },
+        "position": { "$ref": "#/$defs/vec3" },
+        "direction": { "$ref": "#/$defs/vec3" },
+        "size": { "$ref": "#/$defs/vec2" },
+        "age": { "type": "number", "minimum": 0 },
+        "health": { "type": "number", "minimum": 0, "maximum": 1 },
+        "active": { "type": "boolean" }
+      }
+    },
+    "root": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "parentNodeId", "position", "direction", "radius", "length", "age", "depth", "active"],
+      "properties": {
+        "id": { "type": "integer", "minimum": 0 },
+        "parentNodeId": { "type": "integer", "minimum": 0 },
+        "position": { "$ref": "#/$defs/vec3" },
+        "direction": { "$ref": "#/$defs/vec3" },
+        "radius": { "type": "number", "minimum": 0 },
+        "length": { "type": "number", "minimum": 0 },
+        "age": { "type": "number", "minimum": 0 },
+        "depth": { "type": "integer", "minimum": 0 },
+        "active": { "type": "boolean" }
+      }
+    }
+  }
+}
