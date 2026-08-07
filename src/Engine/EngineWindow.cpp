@@ -142,6 +142,70 @@ EngineWindow::EngineWindow(SimulationEngine* simulationEngine, QWidget* parent)
     inspectorLayout->addWidget(createDivider(inspector));
     inspectorLayout->addSpacing(20);
 
+    // ------------------------------------------------------------------
+    // 第9周：GROWTH TIMELINE 面板（开始 / 暂停 / 继续 / 重置 + 速度 + 状态）
+    // ------------------------------------------------------------------
+    inspectorLayout->addWidget(createSectionTitle(QStringLiteral("GROWTH TIMELINE"), inspector));
+    inspectorLayout->addSpacing(14);
+
+    auto* playbackRow = new QHBoxLayout();
+    playbackRow->setContentsMargins(0, 0, 0, 0);
+    playbackRow->setSpacing(6);
+    startButton_  = new QPushButton(QStringLiteral("Start"),  inspector);
+    pauseButton_  = new QPushButton(QStringLiteral("Pause"),  inspector);
+    resumeButton_ = new QPushButton(QStringLiteral("Resume"), inspector);
+    resetButton_  = new QPushButton(QStringLiteral("Reset"),  inspector);
+    for (QPushButton* button : {startButton_, pauseButton_, resumeButton_, resetButton_}) {
+        button->setObjectName(QStringLiteral("PlaybackButton"));
+        button->setMinimumHeight(30);
+        playbackRow->addWidget(button);
+    }
+    inspectorLayout->addLayout(playbackRow);
+    inspectorLayout->addSpacing(10);
+
+    auto* speedTitleRow = new QHBoxLayout();
+    speedTitleRow->setContentsMargins(0, 0, 0, 0);
+    speedTitleRow->addWidget(createLabel(QStringLiteral("Growth speed"), QStringLiteral("ControlName"), inspector));
+    speedValueLabel_ = createLabel(QStringLiteral("1.0x"), QStringLiteral("ControlValue"), inspector);
+    speedValueLabel_->setAlignment(Qt::AlignRight | Qt::AlignVCenter);
+    speedTitleRow->addWidget(speedValueLabel_);
+    inspectorLayout->addLayout(speedTitleRow);
+    inspectorLayout->addSpacing(6);
+
+    speedSlider_ = new QSlider(Qt::Horizontal, inspector);
+    speedSlider_->setRange(1, 80);   // 0.1x .. 8.0x × 10
+    speedSlider_->setSingleStep(1);
+    speedSlider_->setPageStep(10);
+    speedSlider_->setValue(10);
+    speedSlider_->setToolTip(QStringLiteral("Adjust growth speed multiplier (0.1x .. 8.0x)"));
+    inspectorLayout->addWidget(speedSlider_);
+
+    auto* speedRangeRow = new QHBoxLayout();
+    speedRangeRow->setContentsMargins(0, 5, 0, 0);
+    speedRangeRow->addWidget(createLabel(QStringLiteral("0.1x"), QStringLiteral("RangeLabel"), inspector));
+    speedRangeRow->addStretch();
+    speedRangeRow->addWidget(createLabel(QStringLiteral("8.0x"), QStringLiteral("RangeLabel"), inspector));
+    inspectorLayout->addLayout(speedRangeRow);
+    inspectorLayout->addSpacing(12);
+
+    addMetric(inspectorLayout, QStringLiteral("Plant age"),     QStringLiteral("0.00 y"), inspector);
+    ageValueLabel_ = qobject_cast<QLabel*>(inspectorLayout->itemAt(inspectorLayout->count() - 1)->layout()->itemAt(1)->widget());
+    inspectorLayout->addSpacing(6);
+    addMetric(inspectorLayout, QStringLiteral("Life stage"),    QStringLiteral("Seedling"), inspector);
+    stageValueLabel_ = qobject_cast<QLabel*>(inspectorLayout->itemAt(inspectorLayout->count() - 1)->layout()->itemAt(1)->widget());
+    inspectorLayout->addSpacing(6);
+    addMetric(inspectorLayout, QStringLiteral("Growth state"),  QStringLiteral("Paused"), inspector);
+    stateValueLabel_ = qobject_cast<QLabel*>(inspectorLayout->itemAt(inspectorLayout->count() - 1)->layout()->itemAt(1)->widget());
+    inspectorLayout->addSpacing(6);
+    addMetric(inspectorLayout, QStringLiteral("Branch length"), QStringLiteral("0.00"), inspector);
+    lengthScaleValueLabel_ = qobject_cast<QLabel*>(inspectorLayout->itemAt(inspectorLayout->count() - 1)->layout()->itemAt(1)->widget());
+    inspectorLayout->addSpacing(6);
+    addMetric(inspectorLayout, QStringLiteral("Branch radius"), QStringLiteral("0.00"), inspector);
+    radiusScaleValueLabel_ = qobject_cast<QLabel*>(inspectorLayout->itemAt(inspectorLayout->count() - 1)->layout()->itemAt(1)->widget());
+    inspectorLayout->addSpacing(20);
+    inspectorLayout->addWidget(createDivider(inspector));
+    inspectorLayout->addSpacing(20);
+
     inspectorLayout->addWidget(createSectionTitle(QStringLiteral("PLANT STRUCTURE"), inspector));
     inspectorLayout->addSpacing(14);
     const auto nodeCount = static_cast<qulonglong>(simulationEngine_->plantNodeCount());
@@ -176,7 +240,28 @@ EngineWindow::EngineWindow(SimulationEngine* simulationEngine, QWidget* parent)
             this, &EngineWindow::onEnvironmentUpdated);
     connect(simulationEngine_, &SimulationEngine::environmentUpdated,
             renderer_, &Renderer::setLightIntensity);
+
+    // 第9周：GROWTH TIMELINE 信号/槽
+    connect(startButton_,  &QPushButton::clicked, this, &EngineWindow::onStartClicked);
+    connect(pauseButton_,  &QPushButton::clicked, this, &EngineWindow::onPauseClicked);
+    connect(resumeButton_, &QPushButton::clicked, this, &EngineWindow::onResumeClicked);
+    connect(resetButton_,  &QPushButton::clicked, this, &EngineWindow::onResetClicked);
+    connect(speedSlider_,  &QSlider::valueChanged, this, &EngineWindow::onSpeedSliderChanged);
+    connect(simulationEngine_, &SimulationEngine::growthUpdated,
+            this, &EngineWindow::onGrowthUpdated);
+    connect(simulationEngine_, &SimulationEngine::growthLogMessage,
+            this, &EngineWindow::showEngineMessage);
+    // 第9周：植物表面网格 → 渲染器（枝干伸长动画）
+    connect(simulationEngine_, &SimulationEngine::plantSurfaceUpdated,
+            renderer_, &Renderer::setPlantSurface);
+
+    // 初始按钮可用性：未启动前 Start 可用；Pause/Resume 在 running 时才可用
+    pauseButton_->setEnabled(false);
+    resumeButton_->setEnabled(false);
+    onSpeedSliderChanged(speedSlider_->value());  // 同步初始速度显示
+
     onEnvironmentUpdated(simulationEngine_->environment().lightIntensity);
+    renderer_->setPlantSurface(simulationEngine_->plantSurface());  // 初始幼苗网格
 }
 
 void EngineWindow::applyTheme() {
@@ -199,6 +284,9 @@ void EngineWindow::applyTheme() {
         QSlider::handle:horizontal { width: 14px; margin: -5px 0; background: #f0bf70; border: 2px solid #101b1f; border-radius: 7px; }
         QPushButton#SecondaryButton { min-height: 34px; color: #c1d2c9; background: #16282b; border: 1px solid #31504c; border-radius: 2px; }
         QPushButton#SecondaryButton:hover { color: #eff8f0; background: #1c3535; border-color: #78c79a; }
+        QPushButton#PlaybackButton { min-height: 28px; color: #dfece5; background: #18323a; border: 1px solid #2f5357; border-radius: 2px; padding: 0 8px; }
+        QPushButton#PlaybackButton:hover { color: #ffffff; background: #1f4148; border-color: #88d6a5; }
+        QPushButton#PlaybackButton:disabled { color: #4a5b56; background: #122025; border-color: #25383b; }
         QCheckBox { color: #9fb5aa; font-size: 11px; spacing: 8px; }
         QCheckBox::indicator { width: 14px; height: 14px; border: 1px solid #41605a; background: #0b1518; border-radius: 2px; }
         QCheckBox::indicator:checked { background: #8ed8a5; border-color: #8ed8a5; }
@@ -227,5 +315,62 @@ void EngineWindow::onEnvironmentUpdated(float intensity) {
     }
     if (lightValueLabel_) {
         lightValueLabel_->setText(QStringLiteral("%1%").arg(value));
+    }
+}
+
+// ============================================================================
+// 第9周：GROWTH TIMELINE 槽
+// ============================================================================
+void EngineWindow::onStartClicked() {
+    if (simulationEngine_) simulationEngine_->startGrowth();
+    pauseButton_->setEnabled(true);
+    resumeButton_->setEnabled(false);
+}
+
+void EngineWindow::onPauseClicked() {
+    if (simulationEngine_) simulationEngine_->pauseGrowth();
+    pauseButton_->setEnabled(false);
+    resumeButton_->setEnabled(true);
+}
+
+void EngineWindow::onResumeClicked() {
+    if (simulationEngine_) simulationEngine_->resumeGrowth();
+    pauseButton_->setEnabled(true);
+    resumeButton_->setEnabled(false);
+}
+
+void EngineWindow::onResetClicked() {
+    if (simulationEngine_) simulationEngine_->resetGrowth(0.0f);
+    pauseButton_->setEnabled(false);
+    resumeButton_->setEnabled(false);
+}
+
+void EngineWindow::onSpeedSliderChanged(int value) {
+    const float speed = value / 10.0f;  // 1 .. 80 → 0.1 .. 8.0
+    if (speedValueLabel_) speedValueLabel_->setText(QStringLiteral("%1x").arg(speed, 0, 'f', 1));
+    if (simulationEngine_) simulationEngine_->setGrowthSpeed(speed);
+}
+
+void EngineWindow::onGrowthUpdated(const GrowthStateReport& report) {
+    if (ageValueLabel_) {
+        ageValueLabel_->setText(QStringLiteral("%1 y").arg(report.age, 0, 'f', 2));
+    }
+    if (stageValueLabel_ && simulationEngine_) {
+        stageValueLabel_->setText(simulationEngine_->growthTimeline()
+                                      .describeLifeStage(report.lifeStage));
+    }
+    if (stateValueLabel_) {
+        stateValueLabel_->setText(toString(report.growthState));
+    }
+    if (lengthScaleValueLabel_) {
+        lengthScaleValueLabel_->setText(QStringLiteral("%1").arg(report.lengthScale, 0, 'f', 3));
+    }
+    if (radiusScaleValueLabel_) {
+        radiusScaleValueLabel_->setText(QStringLiteral("%1").arg(report.radiusScale, 0, 'f', 3));
+    }
+    // 终态自动禁用 Pause
+    if (report.growthState == PlantGrowthState::Completed) {
+        pauseButton_->setEnabled(false);
+        resumeButton_->setEnabled(false);
     }
 }

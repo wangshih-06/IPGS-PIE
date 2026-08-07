@@ -1,0 +1,1013 @@
+{
+    "plant": {
+        "age": 30,
+        "branchCount": 65,
+        "growthState": "completed",
+        "leafCount": 0,
+        "lifeStage": "mature",
+        "nodeCount": 66
+    },
+    "preset": "cherry",
+    "samples": [
+        {
+            "age": 0,
+            "leafScaleLength": 0.16312873363494873,
+            "leafScaleWidth": 0.16312873363494873,
+            "lengthScale": 0.08317269384860992,
+            "lifeStage": "seedling",
+            "radiusScale": 0.5038902759552002
+        },
+        {
+            "age": 0.25,
+            "leafScaleLength": 0.23675093054771423,
+            "leafScaleWidth": 0.23675093054771423,
+            "lengthScale": 0.11920291930437088,
+            "lifeStage": "seedling",
+            "radiusScale": 0.5801618695259094
+        },
+        {
+            "age": 0.5,
+            "leafScaleLength": 0.33240807056427,
+            "leafScaleWidth": 0.33240807056427,
+            "lengthScale": 0.1679816097021103,
+            "lifeStage": "vegetative",
+            "radiusScale": 0.659925639629364
+        },
+        {
+            "age": 0.75,
+            "leafScaleLength": 0.44776487350463867,
+            "leafScaleWidth": 0.44776487350463867,
+            "lengthScale": 0.23147521913051605,
+            "lifeStage": "vegetative",
+            "radiusScale": 0.7413097620010376
+        },
+        {
+            "age": 1,
+            "leafScaleLength": 0.574999988079071,
+            "leafScaleWidth": 0.574999988079071,
+            "lengthScale": 0.31002551317214966,
+            "lifeStage": "vegetative",
+            "radiusScale": 0.8222847580909729
+        },
+        {
+            "age": 1.25,
+            "leafScaleLength": 0.7022351026535034,
+            "leafScaleWidth": 0.7022351026535034,
+            "lengthScale": 0.40131235122680664,
+            "lifeStage": "vegetative",
+            "radiusScale": 0.9008612632751465
+        },
+        {
+            "age": 1.5,
+            "leafScaleLength": 0.8175919055938721,
+            "leafScaleWidth": 0.8175919055938721,
+            "lengthScale": 0.5,
+            "lifeStage": "vegetative",
+            "radiusScale": 0.975280225276947
+        },
+        {
+            "age": 1.75,
+            "leafScaleLength": 0.9132490754127502,
+            "leafScaleWidth": 0.9132490754127502,
+            "lengthScale": 0.5986876487731934,
+            "lifeStage": "vegetative",
+            "radiusScale": 1.0441573858261108
+        },
+        {
+            "age": 2,
+            "leafScaleLength": 0.9868712425231934,
+            "leafScaleWidth": 0.9868712425231934,
+            "lengthScale": 0.6899744868278503,
+            "lifeStage": "vegetative",
+            "radiusScale": 1.1065603494644165
+        },
+        {
+            "age": 2.25,
+            "leafScaleLength": 1.0403480529785156,
+            "leafScaleWidth": 1.0403480529785156,
+            "lengthScale": 0.7685247659683228,
+            "lifeStage": "vegetative",
+            "radiusScale": 1.1620144844055176
+        },
+        {
+            "age": 2.5,
+            "leafScaleLength": 1.0775805711746216,
+            "leafScaleWidth": 1.0775805711746216,
+            "lengthScale": 0.8320183753967285,
+            "lifeStage": "vegetative",
+            "radiusScale": 1.210452914237976
+        },
+        {
+            "age": 2.75,
+            "leafScaleLength": 1.1027450561523438,
+            "leafScaleWidth": 1.1027450561523438,
+            "lengthScale": 0.8807970881462097,
+            "lifeStage": "vegetative",
+            "radiusScale": 1.2521315813064575
+        },
+        {
+            "age": 3,
+            "leafScaleLength": 1.1194133758544922,
+            "leafScaleWidth": 1.1194133758544922,
+            "lengthScale": 0.9168273210525513,
+            "lifeStage": "mature",
+            "radiusScale": 1.287531852722168
+        },
+        {
+            "age": 3.25,
+            "leafScaleLength": 1.1303073167800903,
+            "leafScaleWidth": 1.1303073167800903,
+            "lengthScale": 0.9426758289337158,
+            "lifeStage": "mature",
+            "radiusScale": 1.3247700929641724
+        },
+        {
+            "age": 3.5,
+            "leafScaleLength": 1.1373649835586548,
+            "leafScaleWidth": 1.1373649835586548,
+            "lengthScale": 0.960834264755249,
+            "lifeStage": "mature",
+            "radiusScale": 1.357021450996399
+        },
+        {
+            "age": 3.75,
+            "leafScaleLength": 1.1419113874435425,
+            "leafScaleWidth": 1.1419113874435425,
+            "lengthScale": 0.9734030365943909,
+            "lifeStage": "mature",
+            "radiusScale": 1.384964108467102
+        },
+        {
+            "age": 4,
+            "leafScaleLength": 1.144829273223877,
+            "leafScaleWidth": 1.144829273223877,
+            "lengthScale": 0.9820137619972229,
+            "lifeStage": "mature",
+            "radiusScale": 1.4092403650283813
+        },
+        {
+            "age": 4.25,
+            "leafScaleLength": 1.1466976404190063,
+            "leafScaleWidth": 1.1466976404190063,
+            "lengthScale": 0.9878715872764587,
+            "lifeStage": "mature",
+            "radiusScale": 1.4304362535476685
+        },
+        {
+            "age": 4.5,
+            "leafScaleLength": 1.1478921175003052,
+            "leafScaleWidth": 1.1478921175003052,
+            "lengthScale": 0.9918374419212341,
+            "lifeStage": "mature",
+            "radiusScale": 1.4490694999694824
+        },
+        {
+            "age": 4.75,
+            "leafScaleLength": 1.1486550569534302,
+            "leafScaleWidth": 1.1486550569534302,
+            "lengthScale": 0.9945136904716492,
+            "lifeStage": "mature",
+            "radiusScale": 1.4655882120132446
+        },
+        {
+            "age": 5,
+            "leafScaleLength": 1.1491420269012451,
+            "leafScaleWidth": 1.1491420269012451,
+            "lengthScale": 0.9963157773017883,
+            "lifeStage": "mature",
+            "radiusScale": 1.4803732633590698
+        },
+        {
+            "age": 5.25,
+            "leafScaleLength": 1.149452805519104,
+            "leafScaleWidth": 1.149452805519104,
+            "lengthScale": 0.9975273609161377,
+            "lifeStage": "mature",
+            "radiusScale": 1.4937448501586914
+        },
+        {
+            "age": 5.5,
+            "leafScaleLength": 1.149651050567627,
+            "leafScaleWidth": 1.149651050567627,
+            "lengthScale": 0.9983412027359009,
+            "lifeStage": "mature",
+            "radiusScale": 1.5059683322906494
+        },
+        {
+            "age": 5.75,
+            "leafScaleLength": 1.1497774124145508,
+            "leafScaleWidth": 1.1497774124145508,
+            "lengthScale": 0.9988874793052673,
+            "lifeStage": "mature",
+            "radiusScale": 1.517262578010559
+        },
+        {
+            "age": 6,
+            "leafScaleLength": 1.1498581171035767,
+            "leafScaleWidth": 1.1498581171035767,
+            "lengthScale": 0.9992539882659912,
+            "lifeStage": "mature",
+            "radiusScale": 1.5278068780899048
+        },
+        {
+            "age": 6.25,
+            "leafScaleLength": 1.149909496307373,
+            "leafScaleWidth": 1.149909496307373,
+            "lengthScale": 0.9994997978210449,
+            "lifeStage": "mature",
+            "radiusScale": 1.5377470254898071
+        },
+        {
+            "age": 6.5,
+            "leafScaleLength": 1.1499422788619995,
+            "leafScaleWidth": 1.1499422788619995,
+            "lengthScale": 0.9996646642684937,
+            "lifeStage": "mature",
+            "radiusScale": 1.5472016334533691
+        },
+        {
+            "age": 6.75,
+            "leafScaleLength": 1.149963140487671,
+            "leafScaleWidth": 1.149963140487671,
+            "lengthScale": 0.9997751712799072,
+            "lifeStage": "mature",
+            "radiusScale": 1.5562660694122314
+        },
+        {
+            "age": 7,
+            "leafScaleLength": 1.1499764919281006,
+            "leafScaleWidth": 1.1499764919281006,
+            "lengthScale": 0.9998493194580078,
+            "lifeStage": "mature",
+            "radiusScale": 1.565017819404602
+        },
+        {
+            "age": 7.25,
+            "leafScaleLength": 1.1499850749969482,
+            "leafScaleWidth": 1.1499850749969482,
+            "lengthScale": 0.9998989701271057,
+            "lifeStage": "mature",
+            "radiusScale": 1.573518991470337
+        },
+        {
+            "age": 7.5,
+            "leafScaleLength": 1.149990439414978,
+            "leafScaleWidth": 1.149990439414978,
+            "lengthScale": 0.9999322891235352,
+            "lifeStage": "mature",
+            "radiusScale": 1.5818192958831787
+        },
+        {
+            "age": 7.75,
+            "leafScaleLength": 1.149993896484375,
+            "leafScaleWidth": 1.149993896484375,
+            "lengthScale": 0.9999545812606812,
+            "lifeStage": "mature",
+            "radiusScale": 1.5899590253829956
+        },
+        {
+            "age": 8,
+            "leafScaleLength": 1.149996042251587,
+            "leafScaleWidth": 1.149996042251587,
+            "lengthScale": 0.9999695420265198,
+            "lifeStage": "mature",
+            "radiusScale": 1.5979702472686768
+        },
+        {
+            "age": 8.25,
+            "leafScaleLength": 1.1499974727630615,
+            "leafScaleWidth": 1.1499974727630615,
+            "lengthScale": 0.9999796152114868,
+            "lifeStage": "mature",
+            "radiusScale": 1.6058788299560547
+        },
+        {
+            "age": 8.5,
+            "leafScaleLength": 1.149998426437378,
+            "leafScaleWidth": 1.149998426437378,
+            "lengthScale": 0.9999863505363464,
+            "lifeStage": "mature",
+            "radiusScale": 1.6137051582336426
+        },
+        {
+            "age": 8.75,
+            "leafScaleLength": 1.1499990224838257,
+            "leafScaleWidth": 1.1499990224838257,
+            "lengthScale": 0.9999908208847046,
+            "lifeStage": "mature",
+            "radiusScale": 1.6214659214019775
+        },
+        {
+            "age": 9,
+            "leafScaleLength": 1.1499993801116943,
+            "leafScaleWidth": 1.1499993801116943,
+            "lengthScale": 0.9999938607215881,
+            "lifeStage": "mature",
+            "radiusScale": 1.6291741132736206
+        },
+        {
+            "age": 9.25,
+            "leafScaleLength": 1.1499996185302734,
+            "leafScaleWidth": 1.1499996185302734,
+            "lengthScale": 0.9999958872795105,
+            "lifeStage": "mature",
+            "radiusScale": 1.6368404626846313
+        },
+        {
+            "age": 9.5,
+            "leafScaleLength": 1.149999737739563,
+            "leafScaleWidth": 1.149999737739563,
+            "lengthScale": 0.9999972581863403,
+            "lifeStage": "mature",
+            "radiusScale": 1.6444733142852783
+        },
+        {
+            "age": 9.75,
+            "leafScaleLength": 1.1499998569488525,
+            "leafScaleWidth": 1.1499998569488525,
+            "lengthScale": 0.999998152256012,
+            "lifeStage": "mature",
+            "radiusScale": 1.6520793437957764
+        },
+        {
+            "age": 10,
+            "leafScaleLength": 1.1499998569488525,
+            "leafScaleWidth": 1.1499998569488525,
+            "lengthScale": 0.9999987483024597,
+            "lifeStage": "mature",
+            "radiusScale": 1.6596641540527344
+        },
+        {
+            "age": 10.25,
+            "leafScaleLength": 1.1499998569488525,
+            "leafScaleWidth": 1.1499998569488525,
+            "lengthScale": 0.9999991655349731,
+            "lifeStage": "mature",
+            "radiusScale": 1.667231798171997
+        },
+        {
+            "age": 10.5,
+            "leafScaleLength": 1.149999976158142,
+            "leafScaleWidth": 1.149999976158142,
+            "lengthScale": 0.999999463558197,
+            "lifeStage": "mature",
+            "radiusScale": 1.674785852432251
+        },
+        {
+            "age": 10.75,
+            "leafScaleLength": 1.149999976158142,
+            "leafScaleWidth": 1.149999976158142,
+            "lengthScale": 0.9999996423721313,
+            "lifeStage": "mature",
+            "radiusScale": 1.6823289394378662
+        },
+        {
+            "age": 11,
+            "leafScaleLength": 1.149999976158142,
+            "leafScaleWidth": 1.149999976158142,
+            "lengthScale": 0.9999997615814209,
+            "lifeStage": "mature",
+            "radiusScale": 1.6898634433746338
+        },
+        {
+            "age": 11.25,
+            "leafScaleLength": 1.149999976158142,
+            "leafScaleWidth": 1.149999976158142,
+            "lengthScale": 0.9999998211860657,
+            "lifeStage": "mature",
+            "radiusScale": 1.6973909139633179
+        },
+        {
+            "age": 11.5,
+            "leafScaleLength": 1.149999976158142,
+            "leafScaleWidth": 1.149999976158142,
+            "lengthScale": 0.9999998807907104,
+            "lifeStage": "mature",
+            "radiusScale": 1.7049129009246826
+        },
+        {
+            "age": 11.75,
+            "leafScaleLength": 1.149999976158142,
+            "leafScaleWidth": 1.149999976158142,
+            "lengthScale": 0.9999999403953552,
+            "lifeStage": "mature",
+            "radiusScale": 1.712430477142334
+        },
+        {
+            "age": 12,
+            "leafScaleLength": 1.149999976158142,
+            "leafScaleWidth": 1.149999976158142,
+            "lengthScale": 0.9999999403953552,
+            "lifeStage": "mature",
+            "radiusScale": 1.7199444770812988
+        },
+        {
+            "age": 12.25,
+            "leafScaleLength": 1.149999976158142,
+            "leafScaleWidth": 1.149999976158142,
+            "lengthScale": 0.9999999403953552,
+            "lifeStage": "mature",
+            "radiusScale": 1.727455735206604
+        },
+        {
+            "age": 12.5,
+            "leafScaleLength": 1.149999976158142,
+            "leafScaleWidth": 1.149999976158142,
+            "lengthScale": 1,
+            "lifeStage": "mature",
+            "radiusScale": 1.7349646091461182
+        },
+        {
+            "age": 12.75,
+            "leafScaleLength": 1.149999976158142,
+            "leafScaleWidth": 1.149999976158142,
+            "lengthScale": 1,
+            "lifeStage": "mature",
+            "radiusScale": 1.7424718141555786
+        },
+        {
+            "age": 13,
+            "leafScaleLength": 1.149999976158142,
+            "leafScaleWidth": 1.149999976158142,
+            "lengthScale": 1,
+            "lifeStage": "mature",
+            "radiusScale": 1.749977469444275
+        },
+        {
+            "age": 13.25,
+            "leafScaleLength": 1.149999976158142,
+            "leafScaleWidth": 1.149999976158142,
+            "lengthScale": 1,
+            "lifeStage": "mature",
+            "radiusScale": 1.7574820518493652
+        },
+        {
+            "age": 13.5,
+            "leafScaleLength": 1.149999976158142,
+            "leafScaleWidth": 1.149999976158142,
+            "lengthScale": 1,
+            "lifeStage": "mature",
+            "radiusScale": 1.7649855613708496
+        },
+        {
+            "age": 13.75,
+            "leafScaleLength": 1.149999976158142,
+            "leafScaleWidth": 1.149999976158142,
+            "lengthScale": 1,
+            "lifeStage": "mature",
+            "radiusScale": 1.7724885940551758
+        },
+        {
+            "age": 14,
+            "leafScaleLength": 1.149999976158142,
+            "leafScaleWidth": 1.149999976158142,
+            "lengthScale": 1,
+            "lifeStage": "mature",
+            "radiusScale": 1.7799909114837646
+        },
+        {
+            "age": 14.25,
+            "leafScaleLength": 1.149999976158142,
+            "leafScaleWidth": 1.149999976158142,
+            "lengthScale": 1,
+            "lifeStage": "mature",
+            "radiusScale": 1.7874927520751953
+        },
+        {
+            "age": 14.5,
+            "leafScaleLength": 1.149999976158142,
+            "leafScaleWidth": 1.149999976158142,
+            "lengthScale": 1,
+            "lifeStage": "mature",
+            "radiusScale": 1.7949942350387573
+        },
+        {
+            "age": 14.75,
+            "leafScaleLength": 1.149999976158142,
+            "leafScaleWidth": 1.149999976158142,
+            "lengthScale": 1,
+            "lifeStage": "mature",
+            "radiusScale": 1.8024953603744507
+        },
+        {
+            "age": 15,
+            "leafScaleLength": 1.149999976158142,
+            "leafScaleWidth": 1.149999976158142,
+            "lengthScale": 1,
+            "lifeStage": "mature",
+            "radiusScale": 1.8099963665008545
+        },
+        {
+            "age": 15.25,
+            "leafScaleLength": 1.149999976158142,
+            "leafScaleWidth": 1.149999976158142,
+            "lengthScale": 1,
+            "lifeStage": "mature",
+            "radiusScale": 1.8174970149993896
+        },
+        {
+            "age": 15.5,
+            "leafScaleLength": 1.149999976158142,
+            "leafScaleWidth": 1.149999976158142,
+            "lengthScale": 1,
+            "lifeStage": "mature",
+            "radiusScale": 1.8249976634979248
+        },
+        {
+            "age": 15.75,
+            "leafScaleLength": 1.149999976158142,
+            "leafScaleWidth": 1.149999976158142,
+            "lengthScale": 1,
+            "lifeStage": "mature",
+            "radiusScale": 1.8324980735778809
+        },
+        {
+            "age": 16,
+            "leafScaleLength": 1.149999976158142,
+            "leafScaleWidth": 1.149999976158142,
+            "lengthScale": 1,
+            "lifeStage": "mature",
+            "radiusScale": 1.839998483657837
+        },
+        {
+            "age": 16.25,
+            "leafScaleLength": 1.149999976158142,
+            "leafScaleWidth": 1.149999976158142,
+            "lengthScale": 1,
+            "lifeStage": "mature",
+            "radiusScale": 1.847498893737793
+        },
+        {
+            "age": 16.5,
+            "leafScaleLength": 1.149999976158142,
+            "leafScaleWidth": 1.149999976158142,
+            "lengthScale": 1,
+            "lifeStage": "mature",
+            "radiusScale": 1.85499906539917
+        },
+        {
+            "age": 16.75,
+            "leafScaleLength": 1.149999976158142,
+            "leafScaleWidth": 1.149999976158142,
+            "lengthScale": 1,
+            "lifeStage": "mature",
+            "radiusScale": 1.8624993562698364
+        },
+        {
+            "age": 17,
+            "leafScaleLength": 1.149999976158142,
+            "leafScaleWidth": 1.149999976158142,
+            "lengthScale": 1,
+            "lifeStage": "mature",
+            "radiusScale": 1.8699994087219238
+        },
+        {
+            "age": 17.25,
+            "leafScaleLength": 1.149999976158142,
+            "leafScaleWidth": 1.149999976158142,
+            "lengthScale": 1,
+            "lifeStage": "mature",
+            "radiusScale": 1.8774995803833008
+        },
+        {
+            "age": 17.5,
+            "leafScaleLength": 1.149999976158142,
+            "leafScaleWidth": 1.149999976158142,
+            "lengthScale": 1,
+            "lifeStage": "mature",
+            "radiusScale": 1.8849997520446777
+        },
+        {
+            "age": 17.75,
+            "leafScaleLength": 1.149999976158142,
+            "leafScaleWidth": 1.149999976158142,
+            "lengthScale": 1,
+            "lifeStage": "mature",
+            "radiusScale": 1.8924996852874756
+        },
+        {
+            "age": 18,
+            "leafScaleLength": 1.149999976158142,
+            "leafScaleWidth": 1.149999976158142,
+            "lengthScale": 1,
+            "lifeStage": "mature",
+            "radiusScale": 1.8999998569488525
+        },
+        {
+            "age": 18.25,
+            "leafScaleLength": 1.149999976158142,
+            "leafScaleWidth": 1.149999976158142,
+            "lengthScale": 1,
+            "lifeStage": "mature",
+            "radiusScale": 1.9074997901916504
+        },
+        {
+            "age": 18.5,
+            "leafScaleLength": 1.149999976158142,
+            "leafScaleWidth": 1.149999976158142,
+            "lengthScale": 1,
+            "lifeStage": "mature",
+            "radiusScale": 1.9149999618530273
+        },
+        {
+            "age": 18.75,
+            "leafScaleLength": 1.149999976158142,
+            "leafScaleWidth": 1.149999976158142,
+            "lengthScale": 1,
+            "lifeStage": "mature",
+            "radiusScale": 1.9224998950958252
+        },
+        {
+            "age": 19,
+            "leafScaleLength": 1.149999976158142,
+            "leafScaleWidth": 1.149999976158142,
+            "lengthScale": 1,
+            "lifeStage": "mature",
+            "radiusScale": 1.9299999475479126
+        },
+        {
+            "age": 19.25,
+            "leafScaleLength": 1.149999976158142,
+            "leafScaleWidth": 1.149999976158142,
+            "lengthScale": 1,
+            "lifeStage": "mature",
+            "radiusScale": 1.9374998807907104
+        },
+        {
+            "age": 19.5,
+            "leafScaleLength": 1.149999976158142,
+            "leafScaleWidth": 1.149999976158142,
+            "lengthScale": 1,
+            "lifeStage": "mature",
+            "radiusScale": 1.9449999332427979
+        },
+        {
+            "age": 19.75,
+            "leafScaleLength": 1.149999976158142,
+            "leafScaleWidth": 1.149999976158142,
+            "lengthScale": 1,
+            "lifeStage": "mature",
+            "radiusScale": 1.9500000476837158
+        },
+        {
+            "age": 20,
+            "leafScaleLength": 1.149999976158142,
+            "leafScaleWidth": 1.149999976158142,
+            "lengthScale": 1,
+            "lifeStage": "mature",
+            "radiusScale": 1.9500000476837158
+        },
+        {
+            "age": 20.25,
+            "leafScaleLength": 1.149999976158142,
+            "leafScaleWidth": 1.149999976158142,
+            "lengthScale": 1,
+            "lifeStage": "mature",
+            "radiusScale": 1.9500000476837158
+        },
+        {
+            "age": 20.5,
+            "leafScaleLength": 1.149999976158142,
+            "leafScaleWidth": 1.149999976158142,
+            "lengthScale": 1,
+            "lifeStage": "mature",
+            "radiusScale": 1.9500000476837158
+        },
+        {
+            "age": 20.75,
+            "leafScaleLength": 1.149999976158142,
+            "leafScaleWidth": 1.149999976158142,
+            "lengthScale": 1,
+            "lifeStage": "mature",
+            "radiusScale": 1.9500000476837158
+        },
+        {
+            "age": 21,
+            "leafScaleLength": 1.149999976158142,
+            "leafScaleWidth": 1.149999976158142,
+            "lengthScale": 1,
+            "lifeStage": "mature",
+            "radiusScale": 1.9500000476837158
+        },
+        {
+            "age": 21.25,
+            "leafScaleLength": 1.149999976158142,
+            "leafScaleWidth": 1.149999976158142,
+            "lengthScale": 1,
+            "lifeStage": "mature",
+            "radiusScale": 1.9500000476837158
+        },
+        {
+            "age": 21.5,
+            "leafScaleLength": 1.149999976158142,
+            "leafScaleWidth": 1.149999976158142,
+            "lengthScale": 1,
+            "lifeStage": "mature",
+            "radiusScale": 1.9500000476837158
+        },
+        {
+            "age": 21.75,
+            "leafScaleLength": 1.149999976158142,
+            "leafScaleWidth": 1.149999976158142,
+            "lengthScale": 1,
+            "lifeStage": "mature",
+            "radiusScale": 1.9500000476837158
+        },
+        {
+            "age": 22,
+            "leafScaleLength": 1.149999976158142,
+            "leafScaleWidth": 1.149999976158142,
+            "lengthScale": 1,
+            "lifeStage": "mature",
+            "radiusScale": 1.9500000476837158
+        },
+        {
+            "age": 22.25,
+            "leafScaleLength": 1.149999976158142,
+            "leafScaleWidth": 1.149999976158142,
+            "lengthScale": 1,
+            "lifeStage": "mature",
+            "radiusScale": 1.9500000476837158
+        },
+        {
+            "age": 22.5,
+            "leafScaleLength": 1.149999976158142,
+            "leafScaleWidth": 1.149999976158142,
+            "lengthScale": 1,
+            "lifeStage": "mature",
+            "radiusScale": 1.9500000476837158
+        },
+        {
+            "age": 22.75,
+            "leafScaleLength": 1.149999976158142,
+            "leafScaleWidth": 1.149999976158142,
+            "lengthScale": 1,
+            "lifeStage": "mature",
+            "radiusScale": 1.9500000476837158
+        },
+        {
+            "age": 23,
+            "leafScaleLength": 1.149999976158142,
+            "leafScaleWidth": 1.149999976158142,
+            "lengthScale": 1,
+            "lifeStage": "mature",
+            "radiusScale": 1.9500000476837158
+        },
+        {
+            "age": 23.25,
+            "leafScaleLength": 1.149999976158142,
+            "leafScaleWidth": 1.149999976158142,
+            "lengthScale": 1,
+            "lifeStage": "mature",
+            "radiusScale": 1.9500000476837158
+        },
+        {
+            "age": 23.5,
+            "leafScaleLength": 1.149999976158142,
+            "leafScaleWidth": 1.149999976158142,
+            "lengthScale": 1,
+            "lifeStage": "mature",
+            "radiusScale": 1.9500000476837158
+        },
+        {
+            "age": 23.75,
+            "leafScaleLength": 1.149999976158142,
+            "leafScaleWidth": 1.149999976158142,
+            "lengthScale": 1,
+            "lifeStage": "mature",
+            "radiusScale": 1.9500000476837158
+        },
+        {
+            "age": 24,
+            "leafScaleLength": 1.149999976158142,
+            "leafScaleWidth": 1.149999976158142,
+            "lengthScale": 1,
+            "lifeStage": "mature",
+            "radiusScale": 1.9500000476837158
+        },
+        {
+            "age": 24.25,
+            "leafScaleLength": 1.149999976158142,
+            "leafScaleWidth": 1.149999976158142,
+            "lengthScale": 1,
+            "lifeStage": "mature",
+            "radiusScale": 1.9500000476837158
+        },
+        {
+            "age": 24.5,
+            "leafScaleLength": 1.149999976158142,
+            "leafScaleWidth": 1.149999976158142,
+            "lengthScale": 1,
+            "lifeStage": "mature",
+            "radiusScale": 1.9500000476837158
+        },
+        {
+            "age": 24.75,
+            "leafScaleLength": 1.149999976158142,
+            "leafScaleWidth": 1.149999976158142,
+            "lengthScale": 1,
+            "lifeStage": "mature",
+            "radiusScale": 1.9500000476837158
+        },
+        {
+            "age": 25,
+            "leafScaleLength": 1.149999976158142,
+            "leafScaleWidth": 1.149999976158142,
+            "lengthScale": 1,
+            "lifeStage": "mature",
+            "radiusScale": 1.9500000476837158
+        },
+        {
+            "age": 25.25,
+            "leafScaleLength": 1.149999976158142,
+            "leafScaleWidth": 1.149999976158142,
+            "lengthScale": 1,
+            "lifeStage": "mature",
+            "radiusScale": 1.9500000476837158
+        },
+        {
+            "age": 25.5,
+            "leafScaleLength": 1.149999976158142,
+            "leafScaleWidth": 1.149999976158142,
+            "lengthScale": 1,
+            "lifeStage": "mature",
+            "radiusScale": 1.9500000476837158
+        },
+        {
+            "age": 25.75,
+            "leafScaleLength": 1.149999976158142,
+            "leafScaleWidth": 1.149999976158142,
+            "lengthScale": 1,
+            "lifeStage": "mature",
+            "radiusScale": 1.9500000476837158
+        },
+        {
+            "age": 26,
+            "leafScaleLength": 1.149999976158142,
+            "leafScaleWidth": 1.149999976158142,
+            "lengthScale": 1,
+            "lifeStage": "mature",
+            "radiusScale": 1.9500000476837158
+        },
+        {
+            "age": 26.25,
+            "leafScaleLength": 1.149999976158142,
+            "leafScaleWidth": 1.149999976158142,
+            "lengthScale": 1,
+            "lifeStage": "mature",
+            "radiusScale": 1.9500000476837158
+        },
+        {
+            "age": 26.5,
+            "leafScaleLength": 1.149999976158142,
+            "leafScaleWidth": 1.149999976158142,
+            "lengthScale": 1,
+            "lifeStage": "mature",
+            "radiusScale": 1.9500000476837158
+        },
+        {
+            "age": 26.75,
+            "leafScaleLength": 1.149999976158142,
+            "leafScaleWidth": 1.149999976158142,
+            "lengthScale": 1,
+            "lifeStage": "mature",
+            "radiusScale": 1.9500000476837158
+        },
+        {
+            "age": 27,
+            "leafScaleLength": 1.149999976158142,
+            "leafScaleWidth": 1.149999976158142,
+            "lengthScale": 1,
+            "lifeStage": "mature",
+            "radiusScale": 1.9500000476837158
+        },
+        {
+            "age": 27.25,
+            "leafScaleLength": 1.149999976158142,
+            "leafScaleWidth": 1.149999976158142,
+            "lengthScale": 1,
+            "lifeStage": "mature",
+            "radiusScale": 1.9500000476837158
+        },
+        {
+            "age": 27.5,
+            "leafScaleLength": 1.149999976158142,
+            "leafScaleWidth": 1.149999976158142,
+            "lengthScale": 1,
+            "lifeStage": "mature",
+            "radiusScale": 1.9500000476837158
+        },
+        {
+            "age": 27.75,
+            "leafScaleLength": 1.149999976158142,
+            "leafScaleWidth": 1.149999976158142,
+            "lengthScale": 1,
+            "lifeStage": "mature",
+            "radiusScale": 1.9500000476837158
+        },
+        {
+            "age": 28,
+            "leafScaleLength": 1.149999976158142,
+            "leafScaleWidth": 1.149999976158142,
+            "lengthScale": 1,
+            "lifeStage": "mature",
+            "radiusScale": 1.9500000476837158
+        },
+        {
+            "age": 28.25,
+            "leafScaleLength": 1.149999976158142,
+            "leafScaleWidth": 1.149999976158142,
+            "lengthScale": 1,
+            "lifeStage": "mature",
+            "radiusScale": 1.9500000476837158
+        },
+        {
+            "age": 28.5,
+            "leafScaleLength": 1.149999976158142,
+            "leafScaleWidth": 1.149999976158142,
+            "lengthScale": 1,
+            "lifeStage": "mature",
+            "radiusScale": 1.9500000476837158
+        },
+        {
+            "age": 28.75,
+            "leafScaleLength": 1.149999976158142,
+            "leafScaleWidth": 1.149999976158142,
+            "lengthScale": 1,
+            "lifeStage": "mature",
+            "radiusScale": 1.9500000476837158
+        },
+        {
+            "age": 29,
+            "leafScaleLength": 1.149999976158142,
+            "leafScaleWidth": 1.149999976158142,
+            "lengthScale": 1,
+            "lifeStage": "mature",
+            "radiusScale": 1.9500000476837158
+        },
+        {
+            "age": 29.25,
+            "leafScaleLength": 1.149999976158142,
+            "leafScaleWidth": 1.149999976158142,
+            "lengthScale": 1,
+            "lifeStage": "mature",
+            "radiusScale": 1.9500000476837158
+        },
+        {
+            "age": 29.5,
+            "leafScaleLength": 1.149999976158142,
+            "leafScaleWidth": 1.149999976158142,
+            "lengthScale": 1,
+            "lifeStage": "mature",
+            "radiusScale": 1.9500000476837158
+        },
+        {
+            "age": 29.75,
+            "leafScaleLength": 1.149999976158142,
+            "leafScaleWidth": 1.149999976158142,
+            "lengthScale": 1,
+            "lifeStage": "mature",
+            "radiusScale": 1.9500000476837158
+        },
+        {
+            "age": 30,
+            "leafScaleLength": 1.149999976158142,
+            "leafScaleWidth": 1.149999976158142,
+            "lengthScale": 1,
+            "lifeStage": "mature",
+            "radiusScale": 1.9500000476837158
+        }
+    ],
+    "schema": "plantsim.growth_timeline",
+    "shape": {
+        "leafAsymptoteRatio": 1.149999976158142,
+        "leafLogisticRate": 1.7999999523162842,
+        "leafMidpoint": 1,
+        "lengthAsymptoteRatio": 1,
+        "lengthLogisticRate": 1.600000023841858,
+        "lengthMidpoint": 1.5,
+        "minimumScale": 0,
+        "radiusAsymptoteRatio": 1.4500000476837158,
+        "radiusLogisticRate": 0.8999999761581421,
+        "radiusMidpoint": 0.699999988079071,
+        "secondaryGrowthRate": 0.029999999329447746
+    },
+    "speeds": {
+        "current": 1,
+        "max": 8,
+        "min": 0.10000000149011612,
+        "secondsPerYear": 2
+    },
+    "state": {
+        "age": 30,
+        "growthState": "completed",
+        "lifeStage": "mature",
+        "playbackMode": "completed"
+    },
+    "thresholds": {
+        "matureEndYear": 30,
+        "seedlingEndYear": 0.5,
+        "vegetativeEndYear": 3
+    },
+    "version": 1
+}

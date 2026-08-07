@@ -2,7 +2,10 @@
 
 #include <QMainWindow>
 
+#include "Engine/GrowthStateReport.h"
+
 class QLabel;
+class QPushButton;
 class QSlider;
 class SimulationEngine;
 class Renderer;
@@ -19,12 +22,34 @@ private slots:
     void onLightSliderChanged(int value);
     void onEnvironmentUpdated(float intensity);
 
+    // 第9周：生长时间轴 UI
+    void onStartClicked();
+    void onPauseClicked();
+    void onResumeClicked();
+    void onResetClicked();
+    void onSpeedSliderChanged(int value);
+    void onGrowthUpdated(const GrowthStateReport& report);
+
 private:
     void applyTheme();
+    void setGrowthButtonsEnabled(bool running);
 
     SimulationEngine* simulationEngine_ = nullptr;
     Renderer* renderer_ = nullptr;
     QSlider* lightSlider_ = nullptr;
     QLabel* lightValueLabel_ = nullptr;
     QLabel* engineStatusLabel_ = nullptr;
+
+    // 第9周：生长时间轴控件
+    QPushButton* startButton_ = nullptr;
+    QPushButton* pauseButton_ = nullptr;
+    QPushButton* resumeButton_ = nullptr;
+    QPushButton* resetButton_ = nullptr;
+    QSlider*     speedSlider_ = nullptr;
+    QLabel*      speedValueLabel_ = nullptr;
+    QLabel*      ageValueLabel_ = nullptr;
+    QLabel*      stageValueLabel_ = nullptr;
+    QLabel*      stateValueLabel_ = nullptr;
+    QLabel*      lengthScaleValueLabel_ = nullptr;
+    QLabel*      radiusScaleValueLabel_ = nullptr;
 };

@@ -1,0 +1,1929 @@
+{
+    "plant": {
+        "age": 30,
+        "growthState": "completed",
+        "id": 900,
+        "lifeStage": "mature",
+        "name": "Growth Timeline 樱花树",
+        "species": "cherry"
+    },
+    "schema": "plantsim.skeleton",
+    "skeleton": {
+        "branches": [
+            {
+                "active": true,
+                "age": 0,
+                "childNodeId": 1,
+                "id": 0,
+                "parentNodeId": 0,
+                "stiffness": 1
+            },
+            {
+                "active": true,
+                "age": 0,
+                "childNodeId": 2,
+                "id": 1,
+                "parentNodeId": 1,
+                "stiffness": 1
+            },
+            {
+                "active": true,
+                "age": 0,
+                "childNodeId": 3,
+                "id": 2,
+                "parentNodeId": 2,
+                "stiffness": 1
+            },
+            {
+                "active": true,
+                "age": 0,
+                "childNodeId": 4,
+                "id": 3,
+                "parentNodeId": 3,
+                "stiffness": 1
+            },
+            {
+                "active": true,
+                "age": 0,
+                "childNodeId": 5,
+                "id": 4,
+                "parentNodeId": 4,
+                "stiffness": 1
+            },
+            {
+                "active": true,
+                "age": 0,
+                "childNodeId": 6,
+                "id": 5,
+                "parentNodeId": 5,
+                "stiffness": 1
+            },
+            {
+                "active": true,
+                "age": 0,
+                "childNodeId": 7,
+                "id": 6,
+                "parentNodeId": 6,
+                "stiffness": 1
+            },
+            {
+                "active": true,
+                "age": 0,
+                "childNodeId": 8,
+                "id": 7,
+                "parentNodeId": 7,
+                "stiffness": 1
+            },
+            {
+                "active": true,
+                "age": 0,
+                "childNodeId": 9,
+                "id": 8,
+                "parentNodeId": 8,
+                "stiffness": 1
+            },
+            {
+                "active": true,
+                "age": 0,
+                "childNodeId": 28,
+                "id": 9,
+                "parentNodeId": 8,
+                "stiffness": 1
+            },
+            {
+                "active": true,
+                "age": 0,
+                "childNodeId": 47,
+                "id": 10,
+                "parentNodeId": 8,
+                "stiffness": 1
+            },
+            {
+                "active": true,
+                "age": 0,
+                "childNodeId": 10,
+                "id": 11,
+                "parentNodeId": 9,
+                "stiffness": 1
+            },
+            {
+                "active": true,
+                "age": 0,
+                "childNodeId": 11,
+                "id": 12,
+                "parentNodeId": 10,
+                "stiffness": 1
+            },
+            {
+                "active": true,
+                "age": 0,
+                "childNodeId": 12,
+                "id": 13,
+                "parentNodeId": 11,
+                "stiffness": 1
+            },
+            {
+                "active": true,
+                "age": 0,
+                "childNodeId": 13,
+                "id": 14,
+                "parentNodeId": 12,
+                "stiffness": 1
+            },
+            {
+                "active": true,
+                "age": 0,
+                "childNodeId": 18,
+                "id": 15,
+                "parentNodeId": 12,
+                "stiffness": 1
+            },
+            {
+                "active": true,
+                "age": 0,
+                "childNodeId": 23,
+                "id": 16,
+                "parentNodeId": 12,
+                "stiffness": 1
+            },
+            {
+                "active": true,
+                "age": 0,
+                "childNodeId": 14,
+                "id": 17,
+                "parentNodeId": 13,
+                "stiffness": 1
+            },
+            {
+                "active": true,
+                "age": 0,
+                "childNodeId": 15,
+                "id": 18,
+                "parentNodeId": 14,
+                "stiffness": 1
+            },
+            {
+                "active": true,
+                "age": 0,
+                "childNodeId": 16,
+                "id": 19,
+                "parentNodeId": 14,
+                "stiffness": 1
+            },
+            {
+                "active": true,
+                "age": 0,
+                "childNodeId": 17,
+                "id": 20,
+                "parentNodeId": 14,
+                "stiffness": 1
+            },
+            {
+                "active": true,
+                "age": 0,
+                "childNodeId": 19,
+                "id": 21,
+                "parentNodeId": 18,
+                "stiffness": 1
+            },
+            {
+                "active": true,
+                "age": 0,
+                "childNodeId": 20,
+                "id": 22,
+                "parentNodeId": 19,
+                "stiffness": 1
+            },
+            {
+                "active": true,
+                "age": 0,
+                "childNodeId": 21,
+                "id": 23,
+                "parentNodeId": 19,
+                "stiffness": 1
+            },
+            {
+                "active": true,
+                "age": 0,
+                "childNodeId": 22,
+                "id": 24,
+                "parentNodeId": 19,
+                "stiffness": 1
+            },
+            {
+                "active": true,
+                "age": 0,
+                "childNodeId": 24,
+                "id": 25,
+                "parentNodeId": 23,
+                "stiffness": 1
+            },
+            {
+                "active": true,
+                "age": 0,
+                "childNodeId": 25,
+                "id": 26,
+                "parentNodeId": 24,
+                "stiffness": 1
+            },
+            {
+                "active": true,
+                "age": 0,
+                "childNodeId": 26,
+                "id": 27,
+                "parentNodeId": 24,
+                "stiffness": 1
+            },
+            {
+                "active": true,
+                "age": 0,
+                "childNodeId": 27,
+                "id": 28,
+                "parentNodeId": 24,
+                "stiffness": 1
+            },
+            {
+                "active": true,
+                "age": 0,
+                "childNodeId": 29,
+                "id": 29,
+                "parentNodeId": 28,
+                "stiffness": 1
+            },
+            {
+                "active": true,
+                "age": 0,
+                "childNodeId": 30,
+                "id": 30,
+                "parentNodeId": 29,
+                "stiffness": 1
+            },
+            {
+                "active": true,
+                "age": 0,
+                "childNodeId": 31,
+                "id": 31,
+                "parentNodeId": 30,
+                "stiffness": 1
+            },
+            {
+                "active": true,
+                "age": 0,
+                "childNodeId": 32,
+                "id": 32,
+                "parentNodeId": 31,
+                "stiffness": 1
+            },
+            {
+                "active": true,
+                "age": 0,
+                "childNodeId": 37,
+                "id": 33,
+                "parentNodeId": 31,
+                "stiffness": 1
+            },
+            {
+                "active": true,
+                "age": 0,
+                "childNodeId": 42,
+                "id": 34,
+                "parentNodeId": 31,
+                "stiffness": 1
+            },
+            {
+                "active": true,
+                "age": 0,
+                "childNodeId": 33,
+                "id": 35,
+                "parentNodeId": 32,
+                "stiffness": 1
+            },
+            {
+                "active": true,
+                "age": 0,
+                "childNodeId": 34,
+                "id": 36,
+                "parentNodeId": 33,
+                "stiffness": 1
+            },
+            {
+                "active": true,
+                "age": 0,
+                "childNodeId": 35,
+                "id": 37,
+                "parentNodeId": 33,
+                "stiffness": 1
+            },
+            {
+                "active": true,
+                "age": 0,
+                "childNodeId": 36,
+                "id": 38,
+                "parentNodeId": 33,
+                "stiffness": 1
+            },
+            {
+                "active": true,
+                "age": 0,
+                "childNodeId": 38,
+                "id": 39,
+                "parentNodeId": 37,
+                "stiffness": 1
+            },
+            {
+                "active": true,
+                "age": 0,
+                "childNodeId": 39,
+                "id": 40,
+                "parentNodeId": 38,
+                "stiffness": 1
+            },
+            {
+                "active": true,
+                "age": 0,
+                "childNodeId": 40,
+                "id": 41,
+                "parentNodeId": 38,
+                "stiffness": 1
+            },
+            {
+                "active": true,
+                "age": 0,
+                "childNodeId": 41,
+                "id": 42,
+                "parentNodeId": 38,
+                "stiffness": 1
+            },
+            {
+                "active": true,
+                "age": 0,
+                "childNodeId": 43,
+                "id": 43,
+                "parentNodeId": 42,
+                "stiffness": 1
+            },
+            {
+                "active": true,
+                "age": 0,
+                "childNodeId": 44,
+                "id": 44,
+                "parentNodeId": 43,
+                "stiffness": 1
+            },
+            {
+                "active": true,
+                "age": 0,
+                "childNodeId": 45,
+                "id": 45,
+                "parentNodeId": 43,
+                "stiffness": 1
+            },
+            {
+                "active": true,
+                "age": 0,
+                "childNodeId": 46,
+                "id": 46,
+                "parentNodeId": 43,
+                "stiffness": 1
+            },
+            {
+                "active": true,
+                "age": 0,
+                "childNodeId": 48,
+                "id": 47,
+                "parentNodeId": 47,
+                "stiffness": 1
+            },
+            {
+                "active": true,
+                "age": 0,
+                "childNodeId": 49,
+                "id": 48,
+                "parentNodeId": 48,
+                "stiffness": 1
+            },
+            {
+                "active": true,
+                "age": 0,
+                "childNodeId": 50,
+                "id": 49,
+                "parentNodeId": 49,
+                "stiffness": 1
+            },
+            {
+                "active": true,
+                "age": 0,
+                "childNodeId": 51,
+                "id": 50,
+                "parentNodeId": 50,
+                "stiffness": 1
+            },
+            {
+                "active": true,
+                "age": 0,
+                "childNodeId": 56,
+                "id": 51,
+                "parentNodeId": 50,
+                "stiffness": 1
+            },
+            {
+                "active": true,
+                "age": 0,
+                "childNodeId": 61,
+                "id": 52,
+                "parentNodeId": 50,
+                "stiffness": 1
+            },
+            {
+                "active": true,
+                "age": 0,
+                "childNodeId": 52,
+                "id": 53,
+                "parentNodeId": 51,
+                "stiffness": 1
+            },
+            {
+                "active": true,
+                "age": 0,
+                "childNodeId": 53,
+                "id": 54,
+                "parentNodeId": 52,
+                "stiffness": 1
+            },
+            {
+                "active": true,
+                "age": 0,
+                "childNodeId": 54,
+                "id": 55,
+                "parentNodeId": 52,
+                "stiffness": 1
+            },
+            {
+                "active": true,
+                "age": 0,
+                "childNodeId": 55,
+                "id": 56,
+                "parentNodeId": 52,
+                "stiffness": 1
+            },
+            {
+                "active": true,
+                "age": 0,
+                "childNodeId": 57,
+                "id": 57,
+                "parentNodeId": 56,
+                "stiffness": 1
+            },
+            {
+                "active": true,
+                "age": 0,
+                "childNodeId": 58,
+                "id": 58,
+                "parentNodeId": 57,
+                "stiffness": 1
+            },
+            {
+                "active": true,
+                "age": 0,
+                "childNodeId": 59,
+                "id": 59,
+                "parentNodeId": 57,
+                "stiffness": 1
+            },
+            {
+                "active": true,
+                "age": 0,
+                "childNodeId": 60,
+                "id": 60,
+                "parentNodeId": 57,
+                "stiffness": 1
+            },
+            {
+                "active": true,
+                "age": 0,
+                "childNodeId": 62,
+                "id": 61,
+                "parentNodeId": 61,
+                "stiffness": 1
+            },
+            {
+                "active": true,
+                "age": 0,
+                "childNodeId": 63,
+                "id": 62,
+                "parentNodeId": 62,
+                "stiffness": 1
+            },
+            {
+                "active": true,
+                "age": 0,
+                "childNodeId": 64,
+                "id": 63,
+                "parentNodeId": 62,
+                "stiffness": 1
+            },
+            {
+                "active": true,
+                "age": 0,
+                "childNodeId": 65,
+                "id": 64,
+                "parentNodeId": 62,
+                "stiffness": 1
+            }
+        ],
+        "leaves": [
+        ],
+        "nodes": [
+            {
+                "active": true,
+                "age": 0,
+                "depth": 0,
+                "direction": [
+                    0,
+                    1,
+                    0
+                ],
+                "generation": 0,
+                "id": 0,
+                "length": 0,
+                "parentId": -1,
+                "position": [
+                    0,
+                    0,
+                    0
+                ],
+                "radius": 0.3315,
+                "type": "stem"
+            },
+            {
+                "active": true,
+                "age": 0,
+                "depth": 1,
+                "direction": [
+                    0,
+                    1,
+                    0
+                ],
+                "generation": 0,
+                "id": 1,
+                "length": 0.491005,
+                "parentId": 0,
+                "position": [
+                    0,
+                    0.491005,
+                    0
+                ],
+                "radius": 0.319731,
+                "type": "stem"
+            },
+            {
+                "active": true,
+                "age": 0,
+                "depth": 2,
+                "direction": [
+                    0,
+                    1,
+                    0
+                ],
+                "generation": 0,
+                "id": 2,
+                "length": 0.449076,
+                "parentId": 1,
+                "position": [
+                    0,
+                    0.940081,
+                    0
+                ],
+                "radius": 0.315563,
+                "type": "stem"
+            },
+            {
+                "active": true,
+                "age": 0,
+                "depth": 3,
+                "direction": [
+                    0,
+                    1,
+                    0
+                ],
+                "generation": 0,
+                "id": 3,
+                "length": 0.409745,
+                "parentId": 2,
+                "position": [
+                    0,
+                    1.349826,
+                    0
+                ],
+                "radius": 0.322361,
+                "type": "stem"
+            },
+            {
+                "active": true,
+                "age": 0,
+                "depth": 4,
+                "direction": [
+                    0,
+                    1,
+                    0
+                ],
+                "generation": 0,
+                "id": 4,
+                "length": 0.392816,
+                "parentId": 3,
+                "position": [
+                    0,
+                    1.742642,
+                    0
+                ],
+                "radius": 0.309625,
+                "type": "stem"
+            },
+            {
+                "active": true,
+                "age": 0,
+                "depth": 5,
+                "direction": [
+                    0,
+                    1,
+                    0
+                ],
+                "generation": 0,
+                "id": 5,
+                "length": 0.38055,
+                "parentId": 4,
+                "position": [
+                    0,
+                    2.123193,
+                    0
+                ],
+                "radius": 0.304729,
+                "type": "stem"
+            },
+            {
+                "active": true,
+                "age": 0,
+                "depth": 6,
+                "direction": [
+                    0,
+                    1,
+                    0
+                ],
+                "generation": 0,
+                "id": 6,
+                "length": 0.335806,
+                "parentId": 5,
+                "position": [
+                    0,
+                    2.458998,
+                    0
+                ],
+                "radius": 0.281874,
+                "type": "stem"
+            },
+            {
+                "active": true,
+                "age": 0,
+                "depth": 7,
+                "direction": [
+                    0,
+                    1,
+                    0
+                ],
+                "generation": 0,
+                "id": 7,
+                "length": 0.366467,
+                "parentId": 6,
+                "position": [
+                    0,
+                    2.825465,
+                    0
+                ],
+                "radius": 0.280193,
+                "type": "stem"
+            },
+            {
+                "active": true,
+                "age": 0,
+                "depth": 8,
+                "direction": [
+                    0,
+                    1,
+                    0
+                ],
+                "generation": 0,
+                "id": 8,
+                "length": 0.304388,
+                "parentId": 7,
+                "position": [
+                    0,
+                    3.129853,
+                    0
+                ],
+                "radius": 0.272875,
+                "type": "stem"
+            },
+            {
+                "active": true,
+                "age": 0,
+                "depth": 9,
+                "direction": [
+                    -0.418058,
+                    0.908421,
+                    0
+                ],
+                "generation": 1,
+                "id": 9,
+                "length": 0.289715,
+                "parentId": 8,
+                "position": [
+                    -0.121118,
+                    3.393036,
+                    0
+                ],
+                "radius": 0.267685,
+                "type": "branch"
+            },
+            {
+                "active": true,
+                "age": 0,
+                "depth": 10,
+                "direction": [
+                    -0.418058,
+                    0.908421,
+                    0
+                ],
+                "generation": 1,
+                "id": 10,
+                "length": 0.281737,
+                "parentId": 9,
+                "position": [
+                    -0.2389,
+                    3.648971,
+                    0
+                ],
+                "radius": 0.27509,
+                "type": "branch"
+            },
+            {
+                "active": true,
+                "age": 0,
+                "depth": 11,
+                "direction": [
+                    -0.418058,
+                    0.908421,
+                    0
+                ],
+                "generation": 1,
+                "id": 11,
+                "length": 0.280346,
+                "parentId": 10,
+                "position": [
+                    -0.3561,
+                    3.903643,
+                    0
+                ],
+                "radius": 0.258581,
+                "type": "branch"
+            },
+            {
+                "active": true,
+                "age": 0,
+                "depth": 12,
+                "direction": [
+                    -0.418058,
+                    0.908421,
+                    0
+                ],
+                "generation": 1,
+                "id": 12,
+                "length": 0.249795,
+                "parentId": 11,
+                "position": [
+                    -0.460529,
+                    4.130562,
+                    0
+                ],
+                "radius": 0.260941,
+                "type": "branch"
+            },
+            {
+                "active": true,
+                "age": 0,
+                "depth": 13,
+                "direction": [
+                    -0.906146,
+                    0.422964,
+                    0
+                ],
+                "generation": 2,
+                "id": 13,
+                "length": 0.234215,
+                "parentId": 12,
+                "position": [
+                    -0.672763,
+                    4.229627,
+                    0
+                ],
+                "radius": 0.25736,
+                "type": "branch"
+            },
+            {
+                "active": true,
+                "age": 0,
+                "depth": 14,
+                "direction": [
+                    -0.906146,
+                    0.422964,
+                    0
+                ],
+                "generation": 2,
+                "id": 14,
+                "length": 0.260257,
+                "parentId": 13,
+                "position": [
+                    -0.908594,
+                    4.339706,
+                    0
+                ],
+                "radius": 0.239033,
+                "type": "branch"
+            },
+            {
+                "active": true,
+                "age": 0,
+                "depth": 15,
+                "direction": [
+                    -0.990898,
+                    -0.134619,
+                    0
+                ],
+                "generation": 3,
+                "id": 15,
+                "length": 0.226664,
+                "parentId": 14,
+                "position": [
+                    -1.133194,
+                    4.309193,
+                    0
+                ],
+                "radius": 0.239148,
+                "type": "branch"
+            },
+            {
+                "active": true,
+                "age": 0,
+                "depth": 15,
+                "direction": [
+                    -0.599149,
+                    0.800637,
+                    0
+                ],
+                "generation": 3,
+                "id": 16,
+                "length": 0.214035,
+                "parentId": 14,
+                "position": [
+                    -1.036832,
+                    4.51107,
+                    0
+                ],
+                "radius": 0.244924,
+                "type": "branch"
+            },
+            {
+                "active": true,
+                "age": 0,
+                "depth": 15,
+                "direction": [
+                    -0.826061,
+                    0.385582,
+                    -0.411036
+                ],
+                "generation": 3,
+                "id": 17,
+                "length": 0.220429,
+                "parentId": 14,
+                "position": [
+                    -1.090681,
+                    4.424699,
+                    -0.090604
+                ],
+                "radius": 0.233448,
+                "type": "branch"
+            },
+            {
+                "active": true,
+                "age": 0,
+                "depth": 13,
+                "direction": [
+                    0.156523,
+                    0.987674,
+                    0
+                ],
+                "generation": 2,
+                "id": 18,
+                "length": 0.247887,
+                "parentId": 12,
+                "position": [
+                    -0.421729,
+                    4.375393,
+                    0
+                ],
+                "radius": 0.24105,
+                "type": "branch"
+            },
+            {
+                "active": true,
+                "age": 0,
+                "depth": 14,
+                "direction": [
+                    0.156523,
+                    0.987674,
+                    0
+                ],
+                "generation": 2,
+                "id": 19,
+                "length": 0.253126,
+                "parentId": 18,
+                "position": [
+                    -0.382109,
+                    4.6254,
+                    0
+                ],
+                "radius": 0.246837,
+                "type": "branch"
+            },
+            {
+                "active": true,
+                "age": 0,
+                "depth": 15,
+                "direction": [
+                    -0.366762,
+                    0.930315,
+                    0
+                ],
+                "generation": 3,
+                "id": 20,
+                "length": 0.230864,
+                "parentId": 19,
+                "position": [
+                    -0.466781,
+                    4.840176,
+                    0
+                ],
+                "radius": 0.230675,
+                "type": "branch"
+            },
+            {
+                "active": true,
+                "age": 0,
+                "depth": 15,
+                "direction": [
+                    0.585611,
+                    0.810592,
+                    0
+                ],
+                "generation": 3,
+                "id": 21,
+                "length": 0.255177,
+                "parentId": 19,
+                "position": [
+                    -0.232675,
+                    4.832244,
+                    0
+                ],
+                "radius": 0.229279,
+                "type": "branch"
+            },
+            {
+                "active": true,
+                "age": 0,
+                "depth": 15,
+                "direction": [
+                    0.145326,
+                    0.917021,
+                    0.371421
+                ],
+                "generation": 3,
+                "id": 22,
+                "length": 0.253973,
+                "parentId": 19,
+                "position": [
+                    -0.3452,
+                    4.858298,
+                    0.094331
+                ],
+                "radius": 0.232566,
+                "type": "branch"
+            },
+            {
+                "active": true,
+                "age": 0,
+                "depth": 13,
+                "direction": [
+                    -0.334324,
+                    0.726471,
+                    0.600389
+                ],
+                "generation": 2,
+                "id": 23,
+                "length": 0.278437,
+                "parentId": 12,
+                "position": [
+                    -0.553617,
+                    4.332838,
+                    0.16717
+                ],
+                "radius": 0.245085,
+                "type": "branch"
+            },
+            {
+                "active": true,
+                "age": 0,
+                "depth": 14,
+                "direction": [
+                    -0.334324,
+                    0.726471,
+                    0.600389
+                ],
+                "generation": 2,
+                "id": 24,
+                "length": 0.248058,
+                "parentId": 23,
+                "position": [
+                    -0.636549,
+                    4.513045,
+                    0.316102
+                ],
+                "radius": 0.243896,
+                "type": "branch"
+            },
+            {
+                "active": true,
+                "age": 0,
+                "depth": 15,
+                "direction": [
+                    -0.753642,
+                    0.408358,
+                    0.515041
+                ],
+                "generation": 3,
+                "id": 25,
+                "length": 0.223726,
+                "parentId": 24,
+                "position": [
+                    -0.805158,
+                    4.604405,
+                    0.43133
+                ],
+                "radius": 0.229734,
+                "type": "branch"
+            },
+            {
+                "active": true,
+                "age": 0,
+                "depth": 15,
+                "direction": [
+                    0.135037,
+                    0.837806,
+                    0.529005
+                ],
+                "generation": 3,
+                "id": 26,
+                "length": 0.235687,
+                "parentId": 24,
+                "position": [
+                    -0.604723,
+                    4.710505,
+                    0.440781
+                ],
+                "radius": 0.230301,
+                "type": "branch"
+            },
+            {
+                "active": true,
+                "age": 0,
+                "depth": 15,
+                "direction": [
+                    -0.101645,
+                    0.220869,
+                    0.969993
+                ],
+                "generation": 3,
+                "id": 27,
+                "length": 0.227654,
+                "parentId": 24,
+                "position": [
+                    -0.659689,
+                    4.563327,
+                    0.536924
+                ],
+                "radius": 0.229675,
+                "type": "branch"
+            },
+            {
+                "active": true,
+                "age": 0,
+                "depth": 9,
+                "direction": [
+                    0.612742,
+                    0.790283,
+                    0
+                ],
+                "generation": 1,
+                "id": 28,
+                "length": 0.348101,
+                "parentId": 8,
+                "position": [
+                    0.213296,
+                    3.404951,
+                    0
+                ],
+                "radius": 0.263528,
+                "type": "branch"
+            },
+            {
+                "active": true,
+                "age": 0,
+                "depth": 10,
+                "direction": [
+                    0.612742,
+                    0.790283,
+                    0
+                ],
+                "generation": 1,
+                "id": 29,
+                "length": 0.310902,
+                "parentId": 28,
+                "position": [
+                    0.403799,
+                    3.650652,
+                    0
+                ],
+                "radius": 0.258995,
+                "type": "branch"
+            },
+            {
+                "active": true,
+                "age": 0,
+                "depth": 11,
+                "direction": [
+                    0.612742,
+                    0.790283,
+                    0
+                ],
+                "generation": 1,
+                "id": 30,
+                "length": 0.295999,
+                "parentId": 29,
+                "position": [
+                    0.58517,
+                    3.884575,
+                    0
+                ],
+                "radius": 0.25906,
+                "type": "branch"
+            },
+            {
+                "active": true,
+                "age": 0,
+                "depth": 12,
+                "direction": [
+                    0.612742,
+                    0.790283,
+                    0
+                ],
+                "generation": 1,
+                "id": 31,
+                "length": 0.299555,
+                "parentId": 30,
+                "position": [
+                    0.768721,
+                    4.121308,
+                    0
+                ],
+                "radius": 0.247324,
+                "type": "branch"
+            },
+            {
+                "active": true,
+                "age": 0,
+                "depth": 13,
+                "direction": [
+                    0.018748,
+                    0.999824,
+                    0
+                ],
+                "generation": 2,
+                "id": 32,
+                "length": 0.254794,
+                "parentId": 31,
+                "position": [
+                    0.773497,
+                    4.376057,
+                    0
+                ],
+                "radius": 0.256346,
+                "type": "branch"
+            },
+            {
+                "active": true,
+                "age": 0,
+                "depth": 14,
+                "direction": [
+                    0.018748,
+                    0.999824,
+                    0
+                ],
+                "generation": 2,
+                "id": 33,
+                "length": 0.259693,
+                "parentId": 32,
+                "position": [
+                    0.778366,
+                    4.635704,
+                    0
+                ],
+                "radius": 0.250464,
+                "type": "branch"
+            },
+            {
+                "active": true,
+                "age": 0,
+                "depth": 15,
+                "direction": [
+                    -0.507118,
+                    0.861877,
+                    0
+                ],
+                "generation": 3,
+                "id": 34,
+                "length": 0.212507,
+                "parentId": 33,
+                "position": [
+                    0.6706,
+                    4.818859,
+                    0
+                ],
+                "radius": 0.242186,
+                "type": "branch"
+            },
+            {
+                "active": true,
+                "age": 0,
+                "depth": 15,
+                "direction": [
+                    0.393101,
+                    0.919495,
+                    0
+                ],
+                "generation": 3,
+                "id": 35,
+                "length": 0.24126,
+                "parentId": 33,
+                "position": [
+                    0.873206,
+                    4.857541,
+                    0
+                ],
+                "radius": 0.233232,
+                "type": "branch"
+            },
+            {
+                "active": true,
+                "age": 0,
+                "depth": 15,
+                "direction": [
+                    0.014253,
+                    0.760111,
+                    0.649637
+                ],
+                "generation": 3,
+                "id": 36,
+                "length": 0.25472,
+                "parentId": 33,
+                "position": [
+                    0.781997,
+                    4.829319,
+                    0.165476
+                ],
+                "radius": 0.239213,
+                "type": "branch"
+            },
+            {
+                "active": true,
+                "age": 0,
+                "depth": 13,
+                "direction": [
+                    0.886389,
+                    0.462941,
+                    0
+                ],
+                "generation": 2,
+                "id": 37,
+                "length": 0.237067,
+                "parentId": 31,
+                "position": [
+                    0.978854,
+                    4.231056,
+                    0
+                ],
+                "radius": 0.253078,
+                "type": "branch"
+            },
+            {
+                "active": true,
+                "age": 0,
+                "depth": 14,
+                "direction": [
+                    0.886389,
+                    0.462941,
+                    0
+                ],
+                "generation": 2,
+                "id": 38,
+                "length": 0.245699,
+                "parentId": 37,
+                "position": [
+                    1.196639,
+                    4.3448,
+                    0
+                ],
+                "radius": 0.238626,
+                "type": "branch"
+            },
+            {
+                "active": true,
+                "age": 0,
+                "depth": 15,
+                "direction": [
+                    0.404613,
+                    0.878508,
+                    -0.253994
+                ],
+                "generation": 3,
+                "id": 39,
+                "length": 0.22913,
+                "parentId": 38,
+                "position": [
+                    1.289348,
+                    4.546092,
+                    -0.058197
+                ],
+                "radius": 0.231494,
+                "type": "branch"
+            },
+            {
+                "active": true,
+                "age": 0,
+                "depth": 15,
+                "direction": [
+                    0.977136,
+                    -0.038792,
+                    0.209049
+                ],
+                "generation": 3,
+                "id": 40,
+                "length": 0.212526,
+                "parentId": 38,
+                "position": [
+                    1.404306,
+                    4.336556,
+                    0.044428
+                ],
+                "radius": 0.229714,
+                "type": "branch"
+            },
+            {
+                "active": true,
+                "age": 0,
+                "depth": 15,
+                "direction": [
+                    0.747865,
+                    0.561888,
+                    0.353524
+                ],
+                "generation": 3,
+                "id": 41,
+                "length": 0.235675,
+                "parentId": 38,
+                "position": [
+                    1.372892,
+                    4.477223,
+                    0.083317
+                ],
+                "radius": 0.241208,
+                "type": "branch"
+            },
+            {
+                "active": true,
+                "age": 0,
+                "depth": 13,
+                "direction": [
+                    0.567534,
+                    0.731975,
+                    -0.376986
+                ],
+                "generation": 2,
+                "id": 42,
+                "length": 0.235411,
+                "parentId": 31,
+                "position": [
+                    0.902324,
+                    4.293622,
+                    -0.088747
+                ],
+                "radius": 0.25199,
+                "type": "branch"
+            },
+            {
+                "active": true,
+                "age": 0,
+                "depth": 14,
+                "direction": [
+                    0.567534,
+                    0.731975,
+                    -0.376986
+                ],
+                "generation": 2,
+                "id": 43,
+                "length": 0.239703,
+                "parentId": 42,
+                "position": [
+                    1.038364,
+                    4.469079,
+                    -0.179111
+                ],
+                "radius": 0.243491,
+                "type": "branch"
+            },
+            {
+                "active": true,
+                "age": 0,
+                "depth": 15,
+                "direction": [
+                    0.176824,
+                    0.923257,
+                    -0.341072
+                ],
+                "generation": 3,
+                "id": 44,
+                "length": 0.236467,
+                "parentId": 43,
+                "position": [
+                    1.080177,
+                    4.687399,
+                    -0.259763
+                ],
+                "radius": 0.235901,
+                "type": "branch"
+            },
+            {
+                "active": true,
+                "age": 0,
+                "depth": 15,
+                "direction": [
+                    0.920858,
+                    0.240384,
+                    -0.30698
+                ],
+                "generation": 3,
+                "id": 45,
+                "length": 0.224427,
+                "parentId": 43,
+                "position": [
+                    1.245029,
+                    4.523028,
+                    -0.248006
+                ],
+                "radius": 0.235061,
+                "type": "branch"
+            },
+            {
+                "active": true,
+                "age": 0,
+                "depth": 15,
+                "direction": [
+                    0.605378,
+                    0.780785,
+                    0.154573
+                ],
+                "generation": 3,
+                "id": 46,
+                "length": 0.248645,
+                "parentId": 43,
+                "position": [
+                    1.188888,
+                    4.663217,
+                    -0.140677
+                ],
+                "radius": 0.234724,
+                "type": "branch"
+            },
+            {
+                "active": true,
+                "age": 0,
+                "depth": 9,
+                "direction": [
+                    0,
+                    0.931787,
+                    0.363005
+                ],
+                "generation": 1,
+                "id": 47,
+                "length": 0.315449,
+                "parentId": 8,
+                "position": [
+                    0,
+                    3.423784,
+                    0.11451
+                ],
+                "radius": 0.263595,
+                "type": "branch"
+            },
+            {
+                "active": true,
+                "age": 0,
+                "depth": 10,
+                "direction": [
+                    0,
+                    0.931787,
+                    0.363005
+                ],
+                "generation": 1,
+                "id": 48,
+                "length": 0.322053,
+                "parentId": 47,
+                "position": [
+                    0,
+                    3.723869,
+                    0.231416
+                ],
+                "radius": 0.274636,
+                "type": "branch"
+            },
+            {
+                "active": true,
+                "age": 0,
+                "depth": 11,
+                "direction": [
+                    0,
+                    0.931787,
+                    0.363005
+                ],
+                "generation": 1,
+                "id": 49,
+                "length": 0.299097,
+                "parentId": 48,
+                "position": [
+                    0,
+                    4.002564,
+                    0.33999
+                ],
+                "radius": 0.25643,
+                "type": "branch"
+            },
+            {
+                "active": true,
+                "age": 0,
+                "depth": 12,
+                "direction": [
+                    0,
+                    0.931787,
+                    0.363005
+                ],
+                "generation": 1,
+                "id": 50,
+                "length": 0.245777,
+                "parentId": 49,
+                "position": [
+                    0,
+                    4.231576,
+                    0.429208
+                ],
+                "radius": 0.251328,
+                "type": "branch"
+            },
+            {
+                "active": true,
+                "age": 0,
+                "depth": 13,
+                "direction": [
+                    -0.41625,
+                    0.847228,
+                    0.330062
+                ],
+                "generation": 2,
+                "id": 51,
+                "length": 0.274477,
+                "parentId": 50,
+                "position": [
+                    -0.114251,
+                    4.464121,
+                    0.519803
+                ],
+                "radius": 0.242526,
+                "type": "branch"
+            },
+            {
+                "active": true,
+                "age": 0,
+                "depth": 14,
+                "direction": [
+                    -0.41625,
+                    0.847228,
+                    0.330062
+                ],
+                "generation": 2,
+                "id": 52,
+                "length": 0.223884,
+                "parentId": 51,
+                "position": [
+                    -0.207443,
+                    4.653801,
+                    0.593699
+                ],
+                "radius": 0.240719,
+                "type": "branch"
+            },
+            {
+                "active": true,
+                "age": 0,
+                "depth": 15,
+                "direction": [
+                    -0.866685,
+                    0.464828,
+                    0.181087
+                ],
+                "generation": 3,
+                "id": 53,
+                "length": 0.223621,
+                "parentId": 52,
+                "position": [
+                    -0.401251,
+                    4.757747,
+                    0.634193
+                ],
+                "radius": 0.236718,
+                "type": "branch"
+            },
+            {
+                "active": true,
+                "age": 0,
+                "depth": 15,
+                "direction": [
+                    0.068928,
+                    0.929571,
+                    0.362142
+                ],
+                "generation": 3,
+                "id": 54,
+                "length": 0.21417,
+                "parentId": 52,
+                "position": [
+                    -0.19268,
+                    4.852887,
+                    0.671258
+                ],
+                "radius": 0.239504,
+                "type": "branch"
+            },
+            {
+                "active": true,
+                "age": 0,
+                "depth": 15,
+                "direction": [
+                    -0.374683,
+                    0.604496,
+                    0.702991
+                ],
+                "generation": 3,
+                "id": 55,
+                "length": 0.238559,
+                "parentId": 52,
+                "position": [
+                    -0.296827,
+                    4.798009,
+                    0.761404
+                ],
+                "radius": 0.235232,
+                "type": "branch"
+            },
+            {
+                "active": true,
+                "age": 0,
+                "depth": 13,
+                "direction": [
+                    0.596098,
+                    0.748143,
+                    0.291461
+                ],
+                "generation": 2,
+                "id": 56,
+                "length": 0.254759,
+                "parentId": 50,
+                "position": [
+                    0.151861,
+                    4.422172,
+                    0.503461
+                ],
+                "radius": 0.244143,
+                "type": "branch"
+            },
+            {
+                "active": true,
+                "age": 0,
+                "depth": 14,
+                "direction": [
+                    0.596098,
+                    0.748143,
+                    0.291461
+                ],
+                "generation": 2,
+                "id": 57,
+                "length": 0.239091,
+                "parentId": 56,
+                "position": [
+                    0.294383,
+                    4.601046,
+                    0.573146
+                ],
+                "radius": 0.244127,
+                "type": "branch"
+            },
+            {
+                "active": true,
+                "age": 0,
+                "depth": 15,
+                "direction": [
+                    0.147108,
+                    0.986699,
+                    0.069166
+                ],
+                "generation": 3,
+                "id": 58,
+                "length": 0.250665,
+                "parentId": 57,
+                "position": [
+                    0.331257,
+                    4.848377,
+                    0.590484
+                ],
+                "radius": 0.227609,
+                "type": "branch"
+            },
+            {
+                "active": true,
+                "age": 0,
+                "depth": 15,
+                "direction": [
+                    0.799094,
+                    0.455317,
+                    0.392602
+                ],
+                "generation": 3,
+                "id": 59,
+                "length": 0.21443,
+                "parentId": 57,
+                "position": [
+                    0.465732,
+                    4.698679,
+                    0.657332
+                ],
+                "radius": 0.243206,
+                "type": "branch"
+            },
+            {
+                "active": true,
+                "age": 0,
+                "depth": 15,
+                "direction": [
+                    0.232697,
+                    0.613487,
+                    0.754643
+                ],
+                "generation": 3,
+                "id": 60,
+                "length": 0.241572,
+                "parentId": 57,
+                "position": [
+                    0.350596,
+                    4.749247,
+                    0.755447
+                ],
+                "radius": 0.232619,
+                "type": "branch"
+            },
+            {
+                "active": true,
+                "age": 0,
+                "depth": 13,
+                "direction": [
+                    0,
+                    0.95195,
+                    -0.306253
+                ],
+                "generation": 2,
+                "id": 61,
+                "length": 0.267158,
+                "parentId": 50,
+                "position": [
+                    0,
+                    4.485897,
+                    0.347391
+                ],
+                "radius": 0.239548,
+                "type": "branch"
+            },
+            {
+                "active": true,
+                "age": 0,
+                "depth": 14,
+                "direction": [
+                    0,
+                    0.95195,
+                    -0.306253
+                ],
+                "generation": 2,
+                "id": 62,
+                "length": 0.252837,
+                "parentId": 61,
+                "position": [
+                    0,
+                    4.726585,
+                    0.269959
+                ],
+                "radius": 0.24562,
+                "type": "branch"
+            },
+            {
+                "active": true,
+                "age": 0,
+                "depth": 15,
+                "direction": [
+                    -0.51792,
+                    0.852893,
+                    0.065824
+                ],
+                "generation": 3,
+                "id": 63,
+                "length": 0.223256,
+                "parentId": 62,
+                "position": [
+                    -0.115629,
+                    4.916998,
+                    0.284654
+                ],
+                "radius": 0.228168,
+                "type": "branch"
+            },
+            {
+                "active": true,
+                "age": 0,
+                "depth": 15,
+                "direction": [
+                    -0.224503,
+                    0.974383,
+                    0.01329
+                ],
+                "generation": 3,
+                "id": 64,
+                "length": 0.24074,
+                "parentId": 62,
+                "position": [
+                    -0.054047,
+                    4.961158,
+                    0.273158
+                ],
+                "radius": 0.239054,
+                "type": "branch"
+            },
+            {
+                "active": true,
+                "age": 0,
+                "depth": 15,
+                "direction": [
+                    0.586583,
+                    0.770974,
+                    -0.248031
+                ],
+                "generation": 3,
+                "id": 65,
+                "length": 0.242465,
+                "parentId": 62,
+                "position": [
+                    0.142226,
+                    4.913519,
+                    0.20982
+                ],
+                "radius": 0.234391,
+                "type": "branch"
+            }
+        ],
+        "rootNodeId": 0,
+        "roots": [
+        ]
+    },
+    "version": 1
+}

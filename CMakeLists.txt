@@ -1,4 +1,4 @@
-﻿cmake_minimum_required(VERSION 3.16)
+cmake_minimum_required(VERSION 3.16)
 project(PlantSimulationSystem LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 17)
@@ -50,6 +50,26 @@ target_include_directories(PlantImplicitSurface PUBLIC
 )
 target_link_libraries(PlantImplicitSurface PUBLIC PlantDataModel Qt5::Core)
 
+# 第9周：生长时间模型（数学 + Qt 播放控制器 + 状态快照）
+add_library(PlantGrowth STATIC
+    src/Engine/GrowthTimeline.cpp
+    src/Engine/GrowthClock.cpp
+    src/Engine/DynamicBranchingSystem.cpp
+    src/Engine/GrowthEventManager.cpp
+    src/Engine/GrowthKeyframeStore.cpp
+    include/Engine/DynamicBranchingSystem.h
+    include/Engine/GrowthEventManager.h
+    include/Engine/GrowthKeyframeStore.h
+    include/Engine/GrowthTimeline.h
+    include/Engine/GrowthClock.h
+    include/Engine/GrowthStateReport.h
+)
+target_include_directories(PlantGrowth PUBLIC
+    ${CMAKE_SOURCE_DIR}/include
+    ${EIGEN_INCLUDE_DIR}
+)
+target_link_libraries(PlantGrowth PUBLIC PlantDataModel Qt5::Core)
+
 add_library(PlantGeometry STATIC
     src/Geometry/MarchingCubes.cpp
     src/Geometry/MeshProcessing.cpp
@@ -72,6 +92,7 @@ add_executable(PlantSimulationSystem
     src/Engine/EngineWindow.cpp
     src/Engine/EngineWindow.h
     src/Engine/SimulationEngine.cpp
+    include/Engine/SimulationEngine.h
     src/Networking/WebSocketServer.cpp
     src/Rendering/Camera.cpp
     src/Rendering/Light.h
@@ -87,6 +108,8 @@ target_include_directories(PlantSimulationSystem PRIVATE
 target_link_libraries(PlantSimulationSystem PRIVATE
     PlantLSystem
     PlantImplicitSurface
+    PlantGrowth
+    PlantGeometry
     Qt5::Widgets
     Qt5::OpenGL
     Qt5::Network
@@ -138,15 +161,59 @@ target_link_libraries(PlantModelExportDemo PRIVATE
     Qt5::Core
 )
 
+# 第9周：生长时间轴 CLI 演示
+add_executable(GrowthTimelineDemo
+    src/Tools/GrowthTimelineDemo.cpp
+)
+target_link_libraries(GrowthTimelineDemo PRIVATE
+    PlantGrowth
+    PlantImplicitSurface
+    PlantLSystem
+    PlantDataModel
+    Qt5::Gui
+    Qt5::Core
+)
+
+# 第9周：枝干伸长动画数值验证
+add_executable(GrowthSurfaceCheck
+    src/Tools/GrowthSurfaceCheck.cpp
+)
+target_link_libraries(GrowthSurfaceCheck PRIVATE
+    PlantGrowth
+    PlantImplicitSurface
+    PlantLSystem
+    PlantGeometry
+    PlantDataModel
+    Qt5::Gui
+    Qt5::Core
+)
+
 if(MSVC)
     target_compile_options(PlantDataModel PRIVATE /utf-8)
     target_compile_options(PlantLSystem PRIVATE /utf-8)
     target_compile_options(PlantImplicitSurface PRIVATE /utf-8)
+    target_compile_options(PlantGrowth PRIVATE /utf-8)
     target_compile_options(PlantSimulationSystem PRIVATE /utf-8)
     target_compile_options(PlantStructureDemo PRIVATE /utf-8)
     target_compile_options(LSystemSkeletonDemo PRIVATE /utf-8)
     target_compile_options(MetaballFieldDemo PRIVATE /utf-8)
     target_compile_options(MarchingCubesDemo PRIVATE /utf-8)
     target_compile_options(PlantModelExportDemo PRIVATE /utf-8)
+    target_compile_options(GrowthTimelineDemo PRIVATE /utf-8)
+    target_compile_options(GrowthSurfaceCheck PRIVATE /utf-8)
     target_compile_options(PlantGeometry PRIVATE /utf-8)
+endif()
+
+# 第10周：动态分枝、叶片萌发、事件与关键帧回归演示
+add_executable(DynamicBranchingDemo
+    src/Tools/DynamicBranchingDemo.cpp
+)
+target_link_libraries(DynamicBranchingDemo PRIVATE
+    PlantGrowth
+    PlantDataModel
+    Qt5::Core
+)
+
+if(MSVC)
+    target_compile_options(DynamicBranchingDemo PRIVATE /utf-8)
 endif()

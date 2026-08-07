@@ -1,0 +1,16 @@
+{
+    "age": 30,
+    "branchCount": 65,
+    "growthState": "completed",
+    "leafCount": 0,
+    "leafScale": [
+        1.149999976158142,
+        1.149999976158142
+    ],
+    "lengthScale": 1,
+    "lifeStage": "mature",
+    "mode": 3,
+    "nodeCount": 66,
+    "radiusScale": 1.9500000476837158,
+    "speed": 1
+}

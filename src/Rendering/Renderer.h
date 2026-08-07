@@ -14,6 +14,7 @@
 
 class QMouseEvent;
 class QWheelEvent;
+struct SurfaceMesh;
 
 class Renderer : public QOpenGLWidget, protected QOpenGLFunctions_4_3_Core {
     Q_OBJECT
@@ -25,6 +26,9 @@ public slots:
     void setLightIntensity(float intensity);
     void resetCamera();
     void setAutoRotate(bool enabled);
+    // 第9周：接收植物表面网格（每次生长 tick 由 SimulationEngine 重新提取）
+    void setPlantSurface(const SurfaceMesh& mesh);
+    void clearPlantSurface();
 
 protected:
     void initializeGL() override;
@@ -37,9 +41,14 @@ protected:
 private:
     void setupShaderProgram();
     void buildReferenceMesh();
+    void buildPlantMesh(const SurfaceMesh& mesh);
+    void uploadPlantMeshIfNeeded();
 
     Shader shader_;
     Mesh mesh_;
+    Mesh plantMesh_;
+    bool hasPlantMesh_ = false;
+    bool plantMeshUploaded_ = false;
     Camera camera_;
     Light light_;
     EnvironmentParams environment_;

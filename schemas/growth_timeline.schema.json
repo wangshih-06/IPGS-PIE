@@ -1,0 +1,102 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://plantsim.local/schemas/growth_timeline.schema.json",
+  "title": "PlantSim Growth Timeline",
+  "description": "第9周：时间驱动的植物生长时间线配置与状态快照（schema=plantsim.growth_timeline, version=1）。",
+  "type": "object",
+  "required": [
+    "schema", "version", "preset", "speeds", "thresholds", "shape", "state"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "schema":  { "const": "plantsim.growth_timeline" },
+    "version": { "const": 1 },
+    "preset":  { "type": "string", "minLength": 1 },
+    "speeds": {
+      "type": "object",
+      "required": ["current", "min", "max", "secondsPerYear"],
+      "properties": {
+        "current":        { "type": "number", "exclusiveMinimum": 0 },
+        "min":            { "type": "number", "exclusiveMinimum": 0 },
+        "max":            { "type": "number", "exclusiveMinimum": 0 },
+        "secondsPerYear": { "type": "number", "exclusiveMinimum": 0 }
+      },
+      "additionalProperties": false
+    },
+    "thresholds": {
+      "type": "object",
+      "required": ["seedlingEndYear", "vegetativeEndYear", "matureEndYear"],
+      "properties": {
+        "seedlingEndYear":   { "type": "number", "minimum": 0 },
+        "vegetativeEndYear": { "type": "number", "exclusiveMinimum": 0 },
+        "matureEndYear":     { "type": "number", "exclusiveMinimum": 0 }
+      },
+      "additionalProperties": false
+    },
+    "shape": {
+      "type": "object",
+      "required": [
+        "lengthLogisticRate", "lengthMidpoint", "lengthAsymptoteRatio",
+        "radiusLogisticRate", "radiusMidpoint", "radiusAsymptoteRatio", "secondaryGrowthRate",
+        "leafLogisticRate", "leafMidpoint", "leafAsymptoteRatio",
+        "minimumScale"
+      ],
+      "properties": {
+        "lengthLogisticRate":    { "type": "number", "exclusiveMinimum": 0 },
+        "lengthMidpoint":        { "type": "number", "minimum": 0 },
+        "lengthAsymptoteRatio":  { "type": "number", "exclusiveMinimum": 0 },
+        "radiusLogisticRate":    { "type": "number", "exclusiveMinimum": 0 },
+        "radiusMidpoint":        { "type": "number", "minimum": 0 },
+        "radiusAsymptoteRatio":  { "type": "number", "exclusiveMinimum": 0 },
+        "secondaryGrowthRate":   { "type": "number", "minimum": 0 },
+        "leafLogisticRate":      { "type": "number", "exclusiveMinimum": 0 },
+        "leafMidpoint":          { "type": "number", "minimum": 0 },
+        "leafAsymptoteRatio":    { "type": "number", "exclusiveMinimum": 0 },
+        "minimumScale":          { "type": "number", "minimum": 0 }
+      },
+      "additionalProperties": false
+    },
+    "state": {
+      "type": "object",
+      "required": ["age", "lifeStage", "playbackMode", "growthState"],
+      "properties": {
+        "age":          { "type": "number", "minimum": 0 },
+        "lifeStage":    { "enum": ["seed", "seedling", "vegetative", "mature", "flowering", "dormant", "senescent"] },
+        "playbackMode": { "enum": ["realtime", "step", "paused", "completed"] },
+        "growthState":  { "enum": ["active", "paused", "dormant", "stressed", "completed"] }
+      },
+      "additionalProperties": false
+    },
+    "samples": {
+      "type": "array",
+      "description": "脱机计算的离散采样表，可用于绘制生长曲线与动画回放。",
+      "items": {
+        "type": "object",
+        "required": ["age", "lengthScale", "radiusScale", "leafScaleLength", "leafScaleWidth", "lifeStage"],
+        "properties": {
+          "age":             { "type": "number", "minimum": 0 },
+          "lengthScale":     { "type": "number", "minimum": 0 },
+          "radiusScale":     { "type": "number", "minimum": 0 },
+          "leafScaleLength": { "type": "number", "minimum": 0 },
+          "leafScaleWidth":  { "type": "number", "minimum": 0 },
+          "lifeStage":       { "enum": ["seed", "seedling", "vegetative", "mature", "flowering", "dormant", "senescent"] }
+        },
+        "additionalProperties": false
+      }
+    },
+    "plant": {
+      "type": "object",
+      "description": "经过若干步生长之后的 PlantModel 终态，可用于回归校验。",
+      "required": ["age", "lifeStage", "nodeCount", "branchCount", "leafCount"],
+      "properties": {
+        "age":         { "type": "number", "minimum": 0 },
+        "lifeStage":   { "enum": ["seed", "seedling", "vegetative", "mature", "flowering", "dormant", "senescent"] },
+        "growthState": { "enum": ["active", "paused", "dormant", "stressed", "completed"] },
+        "nodeCount":   { "type": "integer", "minimum": 0 },
+        "branchCount": { "type": "integer", "minimum": 0 },
+        "leafCount":   { "type": "integer", "minimum": 0 }
+      },
+      "additionalProperties": false
+    }
+  }
+}

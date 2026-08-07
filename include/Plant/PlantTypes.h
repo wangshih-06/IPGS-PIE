@@ -10,6 +10,9 @@ struct Branch {
     int childNodeId = -1;
     float age = 0.0f;
     float stiffness = 1.0f;
+    float health = 1.0f;
+    float growthProgress = 1.0f;
+    bool growing = true;
     bool active = true;
 };
 
@@ -21,6 +24,8 @@ struct Leaf {
     Vec2 size = Vec2(0.12f, 0.06f);
     float age = 0.0f;
     float health = 1.0f;
+    float growthProgress = 1.0f;
+    bool growing = true;
     bool active = true;
 };
 

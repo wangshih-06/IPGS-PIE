@@ -8,10 +8,24 @@
 #include <QtMath>
 #include <QWheelEvent>
 
+#include <algorithm>
+
 #include <Eigen/Geometry>
+
+#include "Geometry/MarchingCubes.h"
 
 namespace {
 using Vertex = MeshVertex;
+
+// 第9周：按高度把植物表面从树干棕色渐变到叶冠绿色
+Vec3 plantSurfaceColor(const Vec3& position, const Vec3& normal, float heightNormalized) {
+    const Vec3 bark(0.42f, 0.27f, 0.16f);
+    const Vec3 crown(0.30f, 0.58f, 0.30f);
+    Vec3 color = bark * (1.0f - heightNormalized) + crown * heightNormalized;
+    // 法线方向带来的轻微明暗变化，让表面更有立体感
+    color += normal * 0.04f;
+    return color.cwiseMax(Vec3::Zero()).cwiseMin(Vec3::Ones());
+}
 
 void addVertex(QVector<Vertex>& vertices, const Vec3& position, const Vec3& normal, const Vec3& color) {
     vertices.push_back(Vertex{position, normal, color});
@@ -126,6 +140,10 @@ void Renderer::paintGL() {
     program.setUniformValue("uLightIntensity", light_.intensity);
     program.setUniformValue("uCameraPosition", cameraPosition.x(), cameraPosition.y(), cameraPosition.z());
     mesh_.draw(this);
+    if (hasPlantMesh_) {
+        uploadPlantMeshIfNeeded();
+        plantMesh_.draw(this);
+    }
     shader_.release();
 }
 
@@ -183,6 +201,54 @@ void Renderer::buildReferenceMesh() {
     addCylinder(vertices, Vec3(0, 0.02f, 0), Vec3(0, 2.4f, 0), 0.025f, Vec3(0.47f, 0.84f, 0.55f));
     addCylinder(vertices, Vec3(0, 0.02f, 0), Vec3(0, 0.02f, 2.2f), 0.025f, Vec3(0.34f, 0.65f, 0.86f));
     mesh_.setVertices(vertices);
+}
+
+// ============================================================================
+// 第9周：植物表面网格（枝干伸长动画）
+//   把 Marching Cubes 提取的 SurfaceMesh 转为带颜色的 MeshVertex。
+//   上传延迟到 paintGL（GL 上下文就绪）时执行，避免构造函数阶段无上下文。
+// ============================================================================
+void Renderer::setPlantSurface(const SurfaceMesh& mesh) {
+    buildPlantMesh(mesh);
+    hasPlantMesh_ = plantMesh_.vertexCount() > 0;
+    plantMeshUploaded_ = false;
+    update();
+}
+
+void Renderer::clearPlantSurface() {
+    hasPlantMesh_ = false;
+    plantMeshUploaded_ = false;
+    plantMesh_.setVertices(QVector<MeshVertex>());
+    update();
+}
+
+void Renderer::uploadPlantMeshIfNeeded() {
+    if (plantMeshUploaded_ || plantMesh_.vertexCount() == 0) return;
+    if (!plantMesh_.upload(this)) return;
+    plantMeshUploaded_ = true;
+}
+
+void Renderer::buildPlantMesh(const SurfaceMesh& mesh) {
+    if (mesh.positions.empty() || mesh.indices.empty()) {
+        plantMesh_.setVertices(QVector<MeshVertex>());
+        return;
+    }
+    // 高度归一化用于树干→叶冠的颜色渐变
+    const float minY = mesh.stats.bounds.minimum.y();
+    const float maxY = mesh.stats.bounds.maximum.y();
+    const float heightSpan = std::max(1.0e-4f, maxY - minY);
+
+    QVector<MeshVertex> vertices;
+    vertices.reserve(static_cast<int>(mesh.indices.size()));
+    for (const std::uint32_t index : mesh.indices) {
+        if (index >= static_cast<std::uint32_t>(mesh.positions.size())) continue;
+        const Vec3& position = mesh.positions[index];
+        const Vec3 normal = index < static_cast<std::uint32_t>(mesh.normals.size())
+                                ? mesh.normals[index] : Vec3::UnitY();
+        const float height = (position.y() - minY) / heightSpan;
+        vertices.push_back(MeshVertex{position, normal, plantSurfaceColor(position, normal, height)});
+    }
+    plantMesh_.setVertices(vertices);
 }
 
 void Renderer::setEnvironment(const EnvironmentParams& environment) {

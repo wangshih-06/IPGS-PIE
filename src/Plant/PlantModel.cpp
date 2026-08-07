@@ -1,4 +1,4 @@
-﻿#include "Plant/PlantModel.h"
+#include "Plant/PlantModel.h"
 
 #include <algorithm>
 #include <cmath>
@@ -73,7 +73,9 @@ void writeNodeDepthFirst(const PlantNode& node, QJsonArray* nodes) {
         {QStringLiteral("length"), jsonNumber(node.length)},
         {QStringLiteral("age"), jsonNumber(node.age)},
         {QStringLiteral("depth"), node.depth}, {QStringLiteral("generation"), node.generation},
-        {QStringLiteral("active"), node.active}
+        {QStringLiteral("active"), node.active}, {QStringLiteral("health"), jsonNumber(node.health)},
+        {QStringLiteral("growthProgress"), jsonNumber(node.growthProgress)},
+        {QStringLiteral("growing"), node.growing}
     });
     for (const auto& child : node.children) writeNodeDepthFirst(*child, nodes);
 }
@@ -155,6 +157,7 @@ PlantNode* PlantModel::createRootNode(const Vec3& position, const Vec3& directio
     rootNode_ = std::make_unique<PlantNode>(position, direction, radius, 0.0f, 0,
                                             allocateNodeId(), -1, 0, nodeAge, active,
                                             PlantNodeType::Stem);
+    captureBaselines();
     return rootNode_.get();
 }
 
@@ -181,6 +184,7 @@ void PlantModel::setRootNode(PlantNodePtr root) {
         };
     normalize(rootNode_.get(), nullptr, 0);
     rebuildBranchesFromSkeleton();
+    captureBaselines();
 }
 
 PlantNode* PlantModel::addNode(int parentId, const Vec3& position, const Vec3& direction,
@@ -192,7 +196,14 @@ PlantNode* PlantModel::addNode(int parentId, const Vec3& position, const Vec3& d
                                         allocateNodeId(), nodeAge, active, type);
     int branchId = 0;
     for (const Branch& branch : branches_) branchId = std::max(branchId, branch.id + 1);
-    branches_.push_back(Branch{branchId, parent->id, child->id, nodeAge, 1.0f, active});
+    branches_.push_back(Branch{branchId, parent->id, child->id, nodeAge, 1.0f, 1.0f, 1.0f, true, active});
+    // 同步扩展 baseline 表
+    if (child->id >= static_cast<int>(baselineNodeLength_.size())) {
+        baselineNodeLength_.resize(static_cast<std::size_t>(nextNodeId_), 0.0f);
+        baselineNodeRadius_.resize(static_cast<std::size_t>(nextNodeId_), 0.0f);
+    }
+    baselineNodeLength_[child->id] = child->length;
+    baselineNodeRadius_[child->id] = child->radius;
     return child;
 }
 
@@ -204,6 +215,11 @@ Leaf& PlantModel::addLeaf(int parentNodeId, const Vec3& position, const Vec3& di
     leaf.size = size.cwiseMax(Vec2::Zero()); leaf.age = std::max(0.0f, leafAge);
     leaf.health = std::max(0.0f, std::min(1.0f, health)); leaf.active = active;
     leaves_.push_back(leaf);
+    // 同步扩展 baseline 表，避免 applyGrowthSample 漏掉新叶子
+    if (leaf.id >= static_cast<int>(baselineLeafSize_.size())) {
+        baselineLeafSize_.resize(static_cast<std::size_t>(nextLeafId_), Vec2::Zero());
+    }
+    baselineLeafSize_[leaf.id] = leaf.size;
     return leaves_.back();
 }
 
@@ -223,6 +239,7 @@ const PlantNode* PlantModel::findNode(int nodeId) const { return rootNode_ ? roo
 std::size_t PlantModel::nodeCount() const { return rootNode_ ? rootNode_->countNodes() : 0; }
 const std::vector<Branch>& PlantModel::branches() const { return branches_; }
 const std::vector<Leaf>& PlantModel::leaves() const { return leaves_; }
+std::vector<Leaf>& PlantModel::mutableLeaves() { return leaves_; }
 const std::vector<Root>& PlantModel::roots() const { return roots_; }
 
 void PlantModel::rebuildBranchesFromSkeleton() {
@@ -230,8 +247,14 @@ void PlantModel::rebuildBranchesFromSkeleton() {
     int branchId = 0;
     visitConstNodes(rootNode_.get(), [&](const PlantNode& node) {
         for (const auto& child : node.children)
-            branches_.push_back(Branch{branchId++, node.id, child->id, child->age, 1.0f, child->active});
+            branches_.push_back(Branch{branchId++, node.id, child->id, child->age, 1.0f,
+                                       child->health, child->growthProgress, child->growing,
+                                       child->active});
     });
+}
+
+void PlantModel::syncBranchStates() {
+    rebuildBranchesFromSkeleton();
 }
 
 void PlantModel::advanceAge(float deltaYears) {
@@ -241,6 +264,70 @@ void PlantModel::advanceAge(float deltaYears) {
     for (Branch& value : branches_) value.age += deltaYears;
     for (Leaf& value : leaves_) value.age += deltaYears;
     for (Root& value : roots_) value.age += deltaYears;
+}
+
+// ============================================================================
+// 第9周：生长基线与 sample 应用
+//   - captureBaselines() 在 setRootNode/createRootNode/addLeaf/loadJson 末尾被调；
+//     之后 applyGrowthSample 只在 baseline × scale 上重写 length/radius/size。
+//   - 多次推进或反向推进都安全（不会累积漂移）。
+// ============================================================================
+void PlantModel::captureBaselines() {
+    const int nodeCapacity = nextNodeId_ > 0 ? nextNodeId_ : 64;
+    const int leafCapacity = nextLeafId_ > 0 ? nextLeafId_ : 32;
+    baselineNodeLength_.assign(static_cast<std::size_t>(nodeCapacity), 0.0f);
+    baselineNodeRadius_.assign(static_cast<std::size_t>(nodeCapacity), 0.0f);
+    baselineLeafSize_.assign(static_cast<std::size_t>(leafCapacity), Vec2::Zero());
+
+    visitMutableNodes(rootNode_.get(), [this](PlantNode& node) {
+        if (node.id >= 0 &&
+            node.id < static_cast<int>(baselineNodeLength_.size())) {
+            baselineNodeLength_[node.id] = node.length;
+            baselineNodeRadius_[node.id] = node.radius;
+        }
+    });
+    for (const Leaf& leaf : leaves_) {
+        if (leaf.id >= 0 && leaf.id < static_cast<int>(baselineLeafSize_.size())) {
+            baselineLeafSize_[leaf.id] = leaf.size;
+        }
+    }
+    baselinesCaptured_ = true;
+}
+
+void PlantModel::applyGrowthSample(const GrowthSample& sample) {
+    if (!baselinesCaptured_) captureBaselines();
+    // 把 plant 总年龄同步到时间轴当前 age（GrowthClock 通过 tick 推进）
+    age = sample.age;
+
+    // 前序遍历：父先于子，因此可在同一趟里完成
+    //   1) 用 基线 × scale 重写 length / radius；
+    //   2) 按新 length 沿节点自身方向重算 position（枝干伸长），
+    //      root 保持原位，子节点 = 父新位置 + direction × 新 length。
+    visitMutableNodes(rootNode_.get(), [this, &sample](PlantNode& node) {
+        if (node.id < 0 || node.id >= static_cast<int>(baselineNodeLength_.size())) return;
+        const float baseL = baselineNodeLength_[node.id];
+        const float baseR = baselineNodeRadius_[node.id];
+        // 防止基线被吃掉（首次 capture 时节点 length 仍是 0）
+        const float progress = std::clamp(node.growthProgress, 0.0f, 1.0f);
+        node.length = ((baseL > 0.0f) ? baseL : node.length) * sample.lengthScale * progress;
+        node.radius = ((baseR > 0.0f) ? baseR : node.radius) * sample.radiusScale * progress;
+        if (node.parent) {
+            node.position = node.parent->position + node.direction * node.length;
+        }
+    });
+    for (Leaf& leaf : leaves_) {
+        if (leaf.id < 0 || leaf.id >= static_cast<int>(baselineLeafSize_.size())) continue;
+        const Vec2 base = baselineLeafSize_[leaf.id];
+        const Vec2 effective = (base.x() > 0.0f && base.y() > 0.0f)
+                                   ? base
+                                   : leaf.size;
+        const float progress = std::clamp(leaf.growthProgress, 0.0f, 1.0f);
+        leaf.size = effective.cwiseProduct(sample.leafScale) * progress;
+    }
+
+    lifeStage = sample.lifeStage;
+    growthState = (sample.age >= 30.0f) ? PlantGrowthState::Completed
+                   : (sample.age <= 0.0f ? growthState : PlantGrowthState::Active);
 }
 
 bool PlantModel::validate(QString* error) const {
@@ -405,6 +492,9 @@ bool PlantModel::fromJson(const QJsonObject& json, PlantModel* output, QString* 
         int generation = 0;
         int depth = 0;
         bool active = true;
+        float health = 1.0f;
+        float growthProgress = 1.0f;
+        bool growing = true;
         PlantNodeType type = PlantNodeType::Stem;
     };
     std::vector<NodeRecord> records;
@@ -429,6 +519,9 @@ bool PlantModel::fromJson(const QJsonObject& json, PlantModel* output, QString* 
         record.generation = object.value(QStringLiteral("generation")).toInt(0);
         record.depth = object.value(QStringLiteral("depth")).toInt(-1);
         record.active = object.value(QStringLiteral("active")).toBool(true);
+        record.health = static_cast<float>(object.value(QStringLiteral("health")).toDouble(1.0));
+        record.growthProgress = static_cast<float>(object.value(QStringLiteral("growthProgress")).toDouble(record.active ? 1.0 : 0.0));
+        record.growing = object.value(QStringLiteral("growing")).toBool(record.active);
         record.type = nodeTypeFromString(object.value(QStringLiteral("type")).toString());
         if (record.radius < 0.0f || record.length < 0.0f || record.age < 0.0f) {
             setError(error, QStringLiteral("Node %1 has negative geometry or age.").arg(record.id)); return false;
@@ -479,6 +572,9 @@ bool PlantModel::fromJson(const QJsonObject& json, PlantModel* output, QString* 
             auto node = std::make_unique<PlantNode>(recordIt->position, recordIt->direction,
                 recordIt->radius, recordIt->length, recordIt->generation, recordIt->id,
                 parent ? parent->id : -1, depth, recordIt->age, recordIt->active, recordIt->type);
+            node->health = std::clamp(recordIt->health, 0.0f, 1.0f);
+            node->growthProgress = std::clamp(recordIt->growthProgress, 0.0f, 1.0f);
+            node->growing = recordIt->growing;
             node->parent = parent;
             for (const NodeRecord& possibleChild : records) {
                 if (possibleChild.parentId == nodeId) {
@@ -516,6 +612,9 @@ bool PlantModel::fromJson(const QJsonObject& json, PlantModel* output, QString* 
             object.value(QStringLiteral("childNodeId")).toInt(-1),
             static_cast<float>(object.value(QStringLiteral("age")).toDouble(0.0)),
             static_cast<float>(object.value(QStringLiteral("stiffness")).toDouble(1.0)),
+            static_cast<float>(object.value(QStringLiteral("health")).toDouble(1.0)),
+            static_cast<float>(object.value(QStringLiteral("growthProgress")).toDouble(1.0)),
+            object.value(QStringLiteral("growing")).toBool(true),
             object.value(QStringLiteral("active")).toBool(true)
         });
     }
@@ -535,6 +634,8 @@ bool PlantModel::fromJson(const QJsonObject& json, PlantModel* output, QString* 
         }
         leaf.age = static_cast<float>(object.value(QStringLiteral("age")).toDouble(0.0));
         leaf.health = static_cast<float>(object.value(QStringLiteral("health")).toDouble(1.0));
+        leaf.growthProgress = std::clamp(static_cast<float>(object.value(QStringLiteral("growthProgress")).toDouble(1.0)), 0.0f, 1.0f);
+        leaf.growing = object.value(QStringLiteral("growing")).toBool(leaf.active);
         leaf.active = object.value(QStringLiteral("active")).toBool(true);
         model.leaves_.push_back(leaf);
         model.nextLeafId_ = std::max(model.nextLeafId_, leaf.id + 1);
@@ -597,7 +698,9 @@ bool PlantModel::loadJson(const QString& filePath, PlantModel* output, QString* 
         setError(error, QStringLiteral("Invalid JSON in %1: %2").arg(filePath, parseError.errorString()));
         return false;
     }
-    return fromJson(document.object(), output, error);
+    if (!fromJson(document.object(), output, error)) return false;
+    output->captureBaselines();
+    return true;
 }
 
 QString PlantModel::toTreeString() const {
@@ -695,7 +798,6 @@ PlantModel PlantModel::createDemoTree() {
 int PlantModel::allocateNodeId() { return nextNodeId_++; }
 int PlantModel::allocateLeafId() { return nextLeafId_++; }
 int PlantModel::allocateRootId() { return nextRootId_++; }
-
 
 
 

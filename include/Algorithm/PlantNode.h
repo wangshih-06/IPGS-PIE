@@ -41,6 +41,9 @@ public:
           age(std::max(0.0f, nodeAge)),
           depth(std::max(0, nodeDepth)),
           active(nodeActive),
+          health(1.0f),
+          growthProgress(nodeActive ? 1.0f : 0.0f),
+          growing(nodeActive),
           type(nodeType),
           generation(std::max(0, nodeGeneration)) {
     }
@@ -135,6 +138,9 @@ public:
     float age = 0.0f;
     int depth = 0;
     bool active = true;
+    float health = 1.0f;
+    float growthProgress = 1.0f;
+    bool growing = true;
     PlantNodeType type = PlantNodeType::Stem;
 
     // L-System bracket nesting level. It is intentionally separate from depth,

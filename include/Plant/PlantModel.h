@@ -1,4 +1,4 @@
-﻿#pragma once
+#pragma once
 
 #include <cstddef>
 #include <vector>
@@ -7,6 +7,7 @@
 #include <QString>
 
 #include "Algorithm/PlantNode.h"
+#include "Engine/GrowthTimeline.h"
 #include "Plant/PlantTypes.h"
 
 class PlantModel {
@@ -67,10 +68,19 @@ public:
 
     const std::vector<Branch>& branches() const;
     const std::vector<Leaf>& leaves() const;
+    std::vector<Leaf>& mutableLeaves();
     const std::vector<Root>& roots() const;
 
     void rebuildBranchesFromSkeleton();
     void advanceAge(float deltaYears);
+
+    // 第9周：按 GrowthSample 把每个节点的 length/radius 与每个 Leaf 的 size
+    // 乘上对应的 scale。基线在 captureBaselines() 时锁定，避免被反复叠加。
+    void captureBaselines();
+    void applyGrowthSample(const GrowthSample& sample);
+    void syncBranchStates();
+    bool hasBaselines() const { return baselinesCaptured_; }
+
     bool validate(QString* error = nullptr) const;
 
     QJsonObject toJson() const;
@@ -93,4 +103,11 @@ private:
     int nextNodeId_ = 0;
     int nextLeafId_ = 0;
     int nextRootId_ = 0;
+
+    // 第9周：生长基线（按节点/叶子 id 索引）。applyGrowthSample 永远只在
+    // baseline × scale 上写回 length/radius/size，所以多次推进不会叠加漂移。
+    std::vector<float> baselineNodeLength_;
+    std::vector<float> baselineNodeRadius_;
+    std::vector<Vec2>  baselineLeafSize_;
+    bool baselinesCaptured_ = false;
 };
