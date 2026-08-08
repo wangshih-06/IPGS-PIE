@@ -50,6 +50,17 @@ target_include_directories(PlantImplicitSurface PUBLIC
 )
 target_link_libraries(PlantImplicitSurface PUBLIC PlantDataModel Qt5::Core)
 
+
+# 第13周：质量点—PBD 植物物理模型
+add_library(PlantPhysics STATIC
+    src/Physics/PlantPhysicsSolver.cpp
+    include/Physics/PlantPhysicsSolver.h
+)
+target_include_directories(PlantPhysics PUBLIC
+    ${CMAKE_SOURCE_DIR}/include
+    ${EIGEN_INCLUDE_DIR}
+)
+target_link_libraries(PlantPhysics PUBLIC PlantDataModel Qt5::Core)
 # 第9/11周：生长时间模型 + 环境与向光性/向地性参数
 add_library(PlantGrowth STATIC
     src/Engine/GrowthTimeline.cpp
@@ -199,6 +210,16 @@ target_link_libraries(DynamicBranchingDemo PRIVATE
     Qt5::Core
 )
 
+
+# 第13周：质量点、固定根节点与长度约束自动化验证 CLI
+add_executable(PlantPhysicsDemo
+    src/Tools/PlantPhysicsDemo.cpp
+)
+target_link_libraries(PlantPhysicsDemo PRIVATE
+    PlantPhysics
+    PlantDataModel
+    Qt5::Core
+)
 # 第11周：向光性与向地性自动化验证 CLI
 add_executable(TropismDemo
     src/Tools/TropismDemo.cpp
@@ -213,6 +234,7 @@ if(MSVC)
     target_compile_options(PlantDataModel PRIVATE /utf-8)
     target_compile_options(PlantLSystem PRIVATE /utf-8)
     target_compile_options(PlantImplicitSurface PRIVATE /utf-8)
+    target_compile_options(PlantPhysics PRIVATE /utf-8)
     target_compile_options(PlantGrowth PRIVATE /utf-8)
     target_compile_options(PlantSimulationSystem PRIVATE /utf-8)
     target_compile_options(PlantStructureDemo PRIVATE /utf-8)
@@ -223,6 +245,7 @@ if(MSVC)
     target_compile_options(GrowthTimelineDemo PRIVATE /utf-8)
     target_compile_options(GrowthSurfaceCheck PRIVATE /utf-8)
     target_compile_options(DynamicBranchingDemo PRIVATE /utf-8)
+    target_compile_options(PlantPhysicsDemo PRIVATE /utf-8)
     target_compile_options(TropismDemo PRIVATE /utf-8)
     target_compile_options(PlantGeometry PRIVATE /utf-8)
 endif()
