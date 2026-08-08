@@ -144,7 +144,12 @@ void SimulationEngine::resetGrowth(float initialYears) {
     emit plantSurfaceUpdated(plantSurface_);
     captureGrowthFrameIfNeeded();
 }
-void SimulationEngine::setGrowthSpeed(float speed) { growthClock_.setSpeed(speed); }
+void SimulationEngine::setGrowthSpeed(float speed) {
+    growthClock_.setSpeed(speed);
+    // Confirm remote speed changes immediately instead of waiting for the next
+    // realtime tick (which may never arrive while the simulation is paused).
+    emit growthUpdated(buildReport(growthClock_.timeline().sample(growthClock_.timeline().currentAge())));
+}
 void SimulationEngine::stepGrowth(float deltaYears) { growthClock_.stepOnce(deltaYears); }
 
 void SimulationEngine::seekGrowth(float age) {
