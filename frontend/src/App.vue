@@ -1,20 +1,21 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import PlantViewport from './components/PlantViewport.vue'
+import GrowthChart from './components/GrowthChart.vue'
+import GrowthTimeline from './components/GrowthTimeline.vue'
+import MetricsPanel from './components/MetricsPanel.vue'
+import ReplayEventLog from './components/ReplayEventLog.vue'
 import {
   appendFrame,
   asNumber,
   findNearest,
-  makePath,
   normalizeFrames,
   offlineFrames,
   parseStages,
-  sample,
   stageListFromFrames,
   stageTitle,
   toPoint,
   type Metric,
-  type PlantSnapshot,
   type Point,
   type Stage,
 } from './lib/growthData'
@@ -37,7 +38,6 @@ const history = ref<Point[]>(offlineFrames())
 const state = ref<State>({ ...history.value[0], speed: 1, mode: 0, nodeCount: 1, recordedFrameCount: history.value.length, recordedEndAge: 30 })
 const names: Record<Metric, string> = { height: '植物高度', totalBranchLength: '枝干总长度', branchCount: '分枝数量', leafCount: '叶片数量', canopyWidth: '冠幅' }
 const stages = ref<Stage[]>(stageListFromFrames(history.value))
-const chartHover = ref<Point | null>(null)
 const label = computed(() => ({
   connecting: '正在连接引擎',
   connected: '引擎已连接',
@@ -48,15 +48,6 @@ const maxAge = computed(() => Math.max(30, state.value.recordedEndAge, history.v
 const progress = computed(() => Math.min(100, age.value / maxAge.value * 100))
 const current = computed(() => ({ height: state.value.height, totalBranchLength: state.value.totalBranchLength, branchCount: state.value.branchCount, leafCount: state.value.leafCount, canopyWidth: state.value.canopyWidth }))
 const viewportGrowthProgress = computed(() => Math.max(0, Math.min(1, age.value / Math.max(0.001, maxAge.value))))
-const chartMax = computed(() => Math.max(1, ...history.value.map(x => x[metric.value])))
-const path = computed(() => makePath(sample(history.value, 160), metric.value, maxAge.value, chartMax.value))
-const area = computed(() => `${path.value} L 1000 240 L 0 240 Z`)
-const chartUnit = computed(() => metric.value === 'branchCount' || metric.value === 'leafCount' ? '' : ' m')
-const chartPrecision = computed(() => metric.value === 'branchCount' || metric.value === 'leafCount' ? 0 : 2)
-const chartTicks = computed(() => [chartMax.value, chartMax.value * .75, chartMax.value * .5, chartMax.value * .25, 0])
-const chartCursorY = computed(() => 228 - current.value[metric.value] / chartMax.value * 198)
-const chartHoverProgress = computed(() => chartHover.value ? chartHover.value.age / maxAge.value * 100 : 0)
-const chartHoverY = computed(() => chartHover.value ? 228 - chartHover.value[metric.value] / chartMax.value * 198 : 228)
 const isEngineConnected = computed(() => connection.value === 'connected')
 let offlinePlaybackFrame = 0
 let offlinePlaybackStartedAt = 0
@@ -145,8 +136,8 @@ function connect(manual = true) {
     scheduleReconnect('已关闭')
   }
 }
-function previewSeek(e: Event) { const target = +(e.target as HTMLInputElement).value; age.value = target; localSeek(target) }
-function commitSeek(e: Event) { const target = +(e.target as HTMLInputElement).value; if (send({ type: 'growth_seek', age: target })) { awaitConfirmation('定位回放'); log(`已请求定位到 ${target.toFixed(2)} 年，等待引擎确认。`) } else log(`离线定位到 ${target.toFixed(2)} 年。`, 'ok') }
+function previewSeek(target: number) { age.value = target; localSeek(target) }
+function commitSeek(target: number) { if (send({ type: 'growth_seek', age: target })) { awaitConfirmation('\u5b9a\u4f4d\u56de\u653e'); log(`\u5df2\u8bf7\u6c42\u5b9a\u4f4d\u5230 ${target.toFixed(2)} \u5e74\uff0c\u7b49\u5f85\u5f15\u64ce\u786e\u8ba4\u3002`) } else log(`\u79bb\u7ebf\u5b9a\u4f4d\u5230 ${target.toFixed(2)} \u5e74\u3002`, 'ok') }
 function stage(x: Stage) { age.value = x.age; localSeek(x.age); if (send({ type: 'growth_seek', age: x.age })) { awaitConfirmation(`跳转${stageTitle(x)}`); log(`已请求跳转到关键阶段：${stageTitle(x)}。`) } else log(`离线跳转到关键阶段：${stageTitle(x)}。`, 'ok') }
 function toggle() {
   if (isEngineConnected.value) {
@@ -158,25 +149,15 @@ function toggle() {
   else { if (age.value >= maxAge.value - 0.0001) localSeek(0); playing.value = true; startOfflinePlayback(); log('开始离线生长过程回放。', 'ok') }
 }
 function reset() { age.value = 0; localSeek(0); if (send({ type: 'growth_reset' })) { awaitConfirmation('重置回放'); log('已请求重置生长记录。') } else { playing.value = false; stopOfflinePlayback(); log('已重置离线回放。', 'ok') } }
-function setSpeed(e: Event) { const requested = +(e.target as HTMLInputElement).value; speed.value = requested; if (send({ type: 'growth_speed', speed: requested })) awaitConfirmation('设置回放速度') }
+function setSpeed(requested: number) { speed.value = requested; if (send({ type: 'growth_speed', speed: requested })) awaitConfirmation('\u8bbe\u7f6e\u56de\u653e\u901f\u5ea6') }
 function setLight(e: Event) { light.value = +(e.target as HTMLInputElement).value; send({ type: 'adjust_light', value: light.value }) }
-function formatMetric(value: number) { return value.toLocaleString('zh-CN', { maximumFractionDigits: chartPrecision.value, minimumFractionDigits: chartPrecision.value }) }
-function chartPoint(event: MouseEvent) {
-  const bounds = (event.currentTarget as SVGSVGElement).getBoundingClientRect()
-  const ratio = Math.max(0, Math.min(1, (event.clientX - bounds.left) / Math.max(1, bounds.width)))
-  return nearest(ratio * maxAge.value)
+function commitChartSeek(target: number) {
+  age.value = target
+  localSeek(target)
+  if (send({ type: 'growth_seek', age: target })) { awaitConfirmation('\u56fe\u8868\u5b9a\u4f4d'); log(`\u5df2\u8bf7\u6c42\u4ece\u56fe\u8868\u5b9a\u4f4d\u5230 ${target.toFixed(2)} \u5e74\u3002`) }
+  else log(`\u5df2\u4ece\u56fe\u8868\u5b9a\u4f4d\u5230 ${target.toFixed(2)} \u5e74\u3002`, 'ok')
 }
-function previewChart(event: MouseEvent) { chartHover.value = chartPoint(event) }
-function commitChartSeek(event: MouseEvent) {
-  const point = chartPoint(event)
-  if (!point) return
-  chartHover.value = point
-  age.value = point.age
-  localSeek(point.age)
-  if (send({ type: 'growth_seek', age: point.age })) { awaitConfirmation('chart seek'); log(`Chart seek requested at ${point.age.toFixed(2)}y.`) }
-  else log(`Chart seek to ${point.age.toFixed(2)}y.`, 'ok')
-}
-function exportData(csv: boolean) { downloadGrowthExport(makeGrowthExport(csv ? 'csv' : 'json', history.value)); log(`已导出生长指标 ${csv ? 'CSV' : 'JSON'}。`, 'ok') }
+function exportData(kind: 'json' | 'csv') { downloadGrowthExport(makeGrowthExport(kind, history.value)); log(`\u5df2\u5bfc\u51fa\u751f\u957f\u6307\u6807 ${kind.toUpperCase()}\u3002`, 'ok') }
 onMounted(() => { localSeek(0); connect(true) }); onBeforeUnmount(() => { allowReconnect = false; clearReconnectTimer(); stopOfflinePlayback(); clearConfirmation(); socket.value?.close() })
 </script>
 
@@ -184,9 +165,9 @@ onMounted(() => { localSeek(0); connect(true) }); onBeforeUnmount(() => { allowR
   <div class="week12-shell">
     <header class="week12-header"><div><p class="eyebrow">WEEK 12 · GROWTH DATA LAB</p><h1>生长数据记录与回放</h1><p>逐时间步保存植物状态，回放生长过程并追踪结构指标变化。</p></div><div class="header-actions"><span class="chip" :class="connection"><i></i>{{ label }}</span><button class="ghost" @click="connect(true)">重新连接</button></div></header>
     <section class="metrics"><article class="stat accent"><span>生长年龄</span><strong>{{ state.age.toFixed(2) }}<small> 年</small></strong><em>{{ state.lifeStage }}</em></article><article class="stat"><span>植物高度</span><strong>{{ current.height.toFixed(2) }}<small> m</small></strong><em>HEIGHT</em></article><article class="stat"><span>枝干总长度</span><strong>{{ current.totalBranchLength.toFixed(1) }}<small> m</small></strong><em>BRANCH LENGTH</em></article><article class="stat"><span>分枝 / 叶片</span><strong>{{ current.branchCount }}<small> / {{ current.leafCount }}</small></strong><em>STRUCTURE</em></article><article class="stat"><span>冠幅</span><strong>{{ current.canopyWidth.toFixed(2) }}<small> m</small></strong><em>CANOPY WIDTH</em></article></section>
-    <main class="main-grid"><section class="card viewport-card"><header><span>01</span><h2>植物生长预览</h2><b>{{ playing ? 'REPLAYING' : 'PAUSED' }}</b></header><PlantViewport :light-intensity="light" :wind-intensity="wind" :playing="playing" plant-type="cherry" :interaction-mode="tool" :reset-token="resetToken" :snapshot="state.plantState" :growth-progress="viewportGrowthProgress"/><footer><div class="tools"><button :class="{ active: tool === 'select' }" @click="tool = 'select'">选择</button><button :class="{ active: tool === 'orbit' }" @click="tool = 'orbit'">旋转</button><button :class="{ active: tool === 'wind' }" @click="tool = 'wind'">风场</button></div><label>光照 <input type="range" min="0" max="1" step=".01" :value="light" @input="setLight"/></label><button class="ghost" @click="resetToken += 1">复位视角</button></footer></section><aside class="card summary"><header><span>02</span><h2>记录摘要</h2><b>{{ state.recordedFrameCount }} FRAMES</b></header><dl><div><dt>记录频率</dt><dd>每个时间步</dd></div><div><dt>已记录时长</dt><dd>{{ state.recordedEndAge.toFixed(2) }} 年</dd></div><div><dt>回放速度</dt><dd>{{ speed.toFixed(1) }}×</dd></div><div><dt>活跃节点</dt><dd>{{ state.nodeCount }}</dd></div></dl><label class="speed">回放速度 <b>{{ speed.toFixed(1) }}×</b><input type="range" min=".1" max="8" step=".1" :value="speed" @input="setSpeed"/></label><div class="exports"><button class="primary" @click="exportData(false)">导出 JSON</button><button class="ghost" @click="exportData(true)">导出 CSV</button></div><p class="hint">引擎端保存完整植物状态快照；此处可下载用于曲线分析的指标数据。</p></aside></main>
-    <section class="card timeline"><header><span>03</span><h2>生长过程回放</h2><b>T = {{ age.toFixed(2) }} / {{ maxAge.toFixed(0) }} 年</b></header><div class="timeline-row"><button class="play" :disabled="!!pendingAction" :aria-label="playing ? '暂停回放' : '开始回放'" @click="toggle"><i :class="playing ? 'pause' : 'triangle'"></i></button><div class="track"><input type="range" min="0" :max="maxAge" step=".01" :value="age" @input="previewSeek" @change="commitSeek"/><i :style="{ width: `${progress}%` }"></i></div><button class="ghost" @click="reset">重置记录</button></div><div class="stages"><button v-for="x in stages" :key="x.key" :class="{ active: Math.abs(age - x.age) < .35 }" @click="stage(x)"><i></i><span>{{ stageTitle(x) }}</span><small>{{ x.age }} 年</small></button></div></section>
-    <section class="card chart"><header><span>04</span><h2>植物指标曲线</h2><nav><button v-for="(_, key) in names" :key="key" :class="{ active: metric === key }" @click="metric = key as Metric">{{ names[key as Metric] }}</button></nav></header><div class="chart-body"><div class="plot"><svg viewBox="0 0 1000 240" preserveAspectRatio="none" tabindex="0" aria-label="Plant growth metric chart. Move to inspect; click to seek." @mousemove="previewChart" @mouseleave="chartHover = null" @click="commitChartSeek"><defs><linearGradient id="fill" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#86db9b" stop-opacity=".38"/><stop offset="1" stop-color="#86db9b" stop-opacity="0"/></linearGradient></defs><path class="grid" d="M0 30H1000M0 80H1000M0 130H1000M0 180H1000M0 228H1000"/><path class="area" :d="area"/><path class="line" :d="path"/><line v-for="stagePoint in stages" :key="stagePoint.key" class="stage-cursor" :x1="stagePoint.age / maxAge * 1000" :x2="stagePoint.age / maxAge * 1000" y1="18" y2="228"/><line class="cursor" :x1="progress * 10" :x2="progress * 10" y1="18" y2="228"/><circle class="current-point" :cx="progress * 10" :cy="chartCursorY" r="6"/></svg><div v-if="chartHover" class="chart-tooltip" :style="{ left: `${chartHoverProgress}%`, top: `${chartHoverY}px` }"><b>{{ chartHover.age.toFixed(2) }} &#24180;</b><span>{{ chartHover.lifeStage }}</span><strong>{{ formatMetric(chartHover[metric]) }}{{ chartUnit }}</strong></div><div class="y-axis"><span v-for="value in chartTicks" :key="value">{{ formatMetric(value) }}{{ chartUnit }}</span></div><div class="axis"><span>0 年</span><span>{{ (maxAge / 2).toFixed(1) }} 年</span><span>{{ maxAge.toFixed(0) }} 年</span></div></div><aside><span>当前指标</span><strong>{{ current[metric].toFixed(metric === 'branchCount' || metric === 'leafCount' ? 0 : 2) }}<small>{{ ['branchCount','leafCount'].includes(metric) ? ' 个' : ' m' }}</small></strong><p>{{ names[metric] }}曲线由 {{ history.length }} 个记录时间步生成。最大值 {{ chartMax.toFixed(1) }}。</p></aside></div></section>
-    <section class="card events"><header><span>05</span><h2>回放事件</h2></header><div v-if="logs.length" class="event-list"><div v-for="x in logs" :key="x.time + x.text"><time>{{ x.time }}</time><i :class="x.tone"></i><p>{{ x.text }}</p></div></div><p v-else class="empty">等待生长事件…</p></section>
+    <main class="main-grid"><section class="card viewport-card"><header><span>01</span><h2>植物生长预览</h2><b>{{ playing ? 'REPLAYING' : 'PAUSED' }}</b></header><PlantViewport :light-intensity="light" :wind-intensity="wind" :playing="playing" plant-type="cherry" :interaction-mode="tool" :reset-token="resetToken" :snapshot="state.plantState" :growth-progress="viewportGrowthProgress"/><footer><div class="tools"><button :class="{ active: tool === 'select' }" @click="tool = 'select'">选择</button><button :class="{ active: tool === 'orbit' }" @click="tool = 'orbit'">旋转</button><button :class="{ active: tool === 'wind' }" @click="tool = 'wind'">风场</button></div><label>光照 <input type="range" min="0" max="1" step=".01" :value="light" @input="setLight"/></label><button class="ghost" @click="resetToken += 1">复位视角</button></footer></section><MetricsPanel :recorded-frame-count="state.recordedFrameCount" :recorded-end-age="state.recordedEndAge" :speed="speed" :node-count="state.nodeCount" @speed-change="setSpeed" @export="exportData"/></main>
+    <GrowthTimeline :age="age" :max-age="maxAge" :progress="progress" :playing="playing" :pending="!!pendingAction" :stages="stages" @toggle="toggle" @preview="previewSeek" @seek="commitSeek" @reset="reset" @stage="stage"/>
+    <GrowthChart :history="history" :metric="metric" :metric-names="names" :current-value="current[metric]" :age="age" :max-age="maxAge" :stages="stages" @update:metric="metric = $event" @seek="commitChartSeek"/>
+    <ReplayEventLog :logs="logs"/>
   </div>
 </template>
