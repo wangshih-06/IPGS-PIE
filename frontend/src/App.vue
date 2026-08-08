@@ -2,7 +2,7 @@
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import PlantViewport from './components/PlantViewport.vue'
 
-type Connection = 'connecting' | 'connected' | 'offline'
+type Connection = 'connecting' | 'connected' | 'reconnecting' | 'offline'
 type Tool = 'select' | 'orbit' | 'wind'
 type Metric = 'height' | 'totalBranchLength' | 'branchCount' | 'leafCount' | 'canopyWidth'
 type Vector3 = [number, number, number]
@@ -23,12 +23,19 @@ const socket = ref<WebSocket | null>(null)
 const connection = ref<Connection>('connecting')
 const light = ref(.8), wind = ref(.28), tool = ref<Tool>('orbit'), resetToken = ref(0), playing = ref(false), speed = ref(1), age = ref(0), metric = ref<Metric>('height')
 const logs = ref<Log[]>([])
+const reconnectAttempt = ref(0)
+const reconnectDelay = ref(0)
 const pendingAction = ref<string | null>(null)
 const history = ref<Point[]>(offlineFrames())
 const state = ref<State>({ ...history.value[0], speed: 1, mode: 0, nodeCount: 1, recordedFrameCount: history.value.length, recordedEndAge: 30 })
 const names: Record<Metric, string> = { height: '植物高度', totalBranchLength: '枝干总长度', branchCount: '分枝数量', leafCount: '叶片数量', canopyWidth: '冠幅' }
 const stages = [{ key: 'seed', label: '种子', age: 0 }, { key: 'sprout', label: '萌发', age: .5 }, { key: 'growing', label: '营养生长', age: 3 }, { key: 'mature', label: '成熟', age: 12 }, { key: 'aging', label: '老化', age: 30 }]
-const label = computed(() => ({ connecting: '正在连接引擎', connected: '引擎已连接', offline: '离线回放预览' }[connection.value]))
+const label = computed(() => ({
+  connecting: '??????',
+  connected: '?????',
+  reconnecting: `?????${reconnectDelay.value}s?`,
+  offline: '??????',
+}[connection.value]))
 const maxAge = computed(() => Math.max(30, state.value.recordedEndAge, history.value.at(-1)?.age ?? 0))
 const progress = computed(() => Math.min(100, age.value / maxAge.value * 100))
 const current = computed(() => ({ height: state.value.height, totalBranchLength: state.value.totalBranchLength, branchCount: state.value.branchCount, leafCount: state.value.leafCount, canopyWidth: state.value.canopyWidth }))
@@ -40,10 +47,13 @@ const isEngineConnected = computed(() => connection.value === 'connected')
 let offlinePlaybackFrame = 0
 let offlinePlaybackStartedAt = 0
 let confirmationTimer = 0
+let reconnectTimer = 0
+let allowReconnect = true
+const maxReconnectAttempts = 5
 
 function offlineFrames(): Point[] { return Array.from({ length: 61 }, (_, step) => { const age = step / 2, g = 1 / (1 + Math.exp(-(age - 4.5) * .56)); return { step, age, lifeStage: age < .5 ? 'Seedling' : age < 3 ? 'Vegetative' : age < 20 ? 'Mature' : 'Senescent', height: +(.15 + 8.6 * g).toFixed(3), totalBranchLength: +(.2 + 112 * g ** 1.18).toFixed(3), branchCount: Math.round(2 + 174 * g ** 1.45), leafCount: Math.round(8 + 2630 * g ** 1.7), canopyWidth: +(.4 + 7.2 * g).toFixed(3) } }) }
 function log(text: string, tone: Log['tone'] = 'muted') { logs.value.unshift({ time: new Intl.DateTimeFormat('zh-CN', { hour: '2-digit', minute: '2-digit', second: '2-digit' }).format(new Date()), text, tone }); logs.value = logs.value.slice(0, 6) }
-function send(command: Record<string, unknown>) { if (socket.value?.readyState !== WebSocket.OPEN) return false; socket.value.send(JSON.stringify(command)); return true }
+function send(command: Record<string, unknown>) { try { if (socket.value?.readyState !== WebSocket.OPEN) return false; socket.value.send(JSON.stringify(command)); return true } catch { return false } }
 function clearConfirmation() { if (confirmationTimer) window.clearTimeout(confirmationTimer); confirmationTimer = 0; pendingAction.value = null }
 function awaitConfirmation(action: string) {
   if (confirmationTimer) window.clearTimeout(confirmationTimer)
@@ -57,7 +67,7 @@ function awaitConfirmation(action: string) {
 }
 function stopOfflinePlayback() { if (offlinePlaybackFrame) cancelAnimationFrame(offlinePlaybackFrame); offlinePlaybackFrame = 0; offlinePlaybackStartedAt = 0 }
 function runOfflinePlayback(timestamp: number) {
-  if (connection.value !== 'offline' || !playing.value) { stopOfflinePlayback(); return }
+  if (isEngineConnected.value || !playing.value) { stopOfflinePlayback(); return }
   if (!offlinePlaybackStartedAt) offlinePlaybackStartedAt = timestamp
   const deltaSeconds = Math.max(0, (timestamp - offlinePlaybackStartedAt) / 1000)
   offlinePlaybackStartedAt = timestamp
@@ -77,8 +87,58 @@ function toPoint(value: Record<string, unknown>): Point | null { const m = value
 function nearest(target: number) { return history.value.reduce<Point | null>((best, x) => !best || Math.abs(x.age - target) < Math.abs(best.age - target) ? x : best, null) }
 function localSeek(target: number) { const x = nearest(target); if (!x) return; age.value = x.age; state.value = { ...state.value, ...x, recordedFrameCount: history.value.length, recordedEndAge: history.value.at(-1)?.age ?? x.age } }
 function append(x: Point) { const prev = history.value.at(-1); if (!prev || Math.abs(prev.age - x.age) > .0001) { if (prev && x.age < prev.age) history.value = history.value.filter(y => y.age <= x.age + .0001); history.value.push(x) } else history.value[history.value.length - 1] = x }
-function receive(payload: Record<string, unknown>) { if (payload.type === 'environment_updated') { light.value = asNumber(payload.lightIntensity, light.value); return } if (payload.type === 'growth_data' && Array.isArray(payload.frames)) { const frames = payload.frames.map(x => toPoint(x as Record<string, unknown>)).filter((x): x is Point => !!x); if (frames.length) { history.value = frames; localSeek(age.value); log(`已载入 ${frames.length} 个生长记录帧。`, 'ok') }; return } if (payload.type === 'growth_state') { const x = toPoint(payload); if (!x) return; state.value = { ...x, speed: asNumber(payload.speed, 1), mode: asNumber(payload.mode), nodeCount: asNumber(payload.nodeCount), recordedFrameCount: asNumber(payload.recordedFrameCount, history.value.length), recordedEndAge: asNumber(payload.recordedEndAge, x.age) }; age.value = x.age; speed.value = state.value.speed; playing.value = state.value.mode === 1; append(x); clearConfirmation() } }
-function connect() { socket.value?.close(); connection.value = 'connecting'; const ws = new WebSocket(engineUrl); socket.value = ws; ws.onopen = () => { connection.value = 'connected'; send({ type: 'request_growth_data' }); log('已连接 C++ 生长引擎。', 'ok') }; ws.onmessage = e => { try { receive(JSON.parse(e.data)) } catch { log('收到无法解析的引擎消息。', 'warn') } }; ws.onerror = () => { connection.value = 'offline'; log('未检测到引擎，已切换到离线预览。', 'warn') }; ws.onclose = () => { if (connection.value === 'connected') { connection.value = 'offline'; playing.value = false } } }
+function receive(payload: Record<string, unknown>) { if (payload.type === 'error') { log(`?????${String(payload.message ?? '????')}`, 'warn'); clearConfirmation(); return } if (payload.type === 'environment_updated') { light.value = asNumber(payload.lightIntensity, light.value); return } if (payload.type === 'growth_data' && Array.isArray(payload.frames)) { const frames = payload.frames.map(x => toPoint(x as Record<string, unknown>)).filter((x): x is Point => !!x); if (frames.length) { history.value = frames; localSeek(age.value); log(`??? ${frames.length} ???????`, 'ok') }; return } if (payload.type === 'growth_state') { const x = toPoint(payload); if (!x) return; state.value = { ...x, speed: asNumber(payload.speed, 1), mode: asNumber(payload.mode), nodeCount: asNumber(payload.nodeCount), recordedFrameCount: asNumber(payload.recordedFrameCount, history.value.length), recordedEndAge: asNumber(payload.recordedEndAge, x.age) }; age.value = x.age; speed.value = state.value.speed; playing.value = state.value.mode === 1; append(x); clearConfirmation() } }
+function clearReconnectTimer() { if (reconnectTimer) window.clearTimeout(reconnectTimer); reconnectTimer = 0 }
+function scheduleReconnect(reason: string) {
+  if (!allowReconnect || reconnectTimer || isEngineConnected.value) return
+  if (reconnectAttempt.value >= maxReconnectAttempts) {
+    connection.value = 'offline'
+    reconnectDelay.value = 0
+    log(`引擎连接已断开（${reason}），自动重连已暂停；可手动重新连接或继续离线回放。`, 'warn')
+    return
+  }
+  reconnectAttempt.value += 1
+  reconnectDelay.value = Math.min(10, 2 ** (reconnectAttempt.value - 1))
+  connection.value = 'reconnecting'
+  log(`引擎连接${reason}，${reconnectDelay.value} 秒后进行第 ${reconnectAttempt.value}/${maxReconnectAttempts} 次重连。`, 'warn')
+  reconnectTimer = window.setTimeout(() => { reconnectTimer = 0; connect(false) }, reconnectDelay.value * 1000)
+}
+function connect(manual = true) {
+  if (manual) {
+    reconnectAttempt.value = 0
+    reconnectDelay.value = 0
+    clearConfirmation()
+  }
+  clearReconnectTimer()
+  const previous = socket.value
+  socket.value = null
+  previous?.close()
+  connection.value = manual ? 'connecting' : 'reconnecting'
+  let ws: WebSocket
+  try { ws = new WebSocket(engineUrl) }
+  catch { scheduleReconnect('创建失败'); return }
+  socket.value = ws
+  ws.onopen = () => {
+    if (socket.value !== ws) return
+    connection.value = 'connected'
+    reconnectAttempt.value = 0
+    reconnectDelay.value = 0
+    send({ type: 'request_growth_data' })
+    log('已连接 C++ 生长引擎。', 'ok')
+  }
+  ws.onmessage = event => {
+    if (socket.value !== ws) return
+    try { receive(JSON.parse(event.data)) } catch { log('收到无法解析的引擎消息。', 'warn') }
+  }
+  ws.onerror = () => { /* close 事件统一处理，避免重复提示。 */ }
+  ws.onclose = () => {
+    if (socket.value !== ws) return
+    socket.value = null
+    clearConfirmation()
+    playing.value = false
+    scheduleReconnect('已关闭')
+  }
+}
 function previewSeek(e: Event) { const target = +(e.target as HTMLInputElement).value; age.value = target; localSeek(target) }
 function commitSeek(e: Event) { const target = +(e.target as HTMLInputElement).value; if (send({ type: 'growth_seek', age: target })) { awaitConfirmation('定位回放'); log(`已请求定位到 ${target.toFixed(2)} 年，等待引擎确认。`) } else log(`离线定位到 ${target.toFixed(2)} 年。`, 'ok') }
 function stage(x: typeof stages[number]) { age.value = x.age; localSeek(x.age); if (send({ type: 'growth_stage', stage: x.key })) { awaitConfirmation(`跳转${x.label}`); log(`已请求跳转到关键阶段：${x.label}。`) } else log(`离线跳转到关键阶段：${x.label}。`, 'ok') }
@@ -97,12 +157,12 @@ function setLight(e: Event) { light.value = +(e.target as HTMLInputElement).valu
 function exportData(csv: boolean) { let text: string, type: string, name: string; if (csv) { const rows = ['step,age_years,life_stage,height,total_branch_length,branch_count,leaf_count,canopy_width', ...history.value.map(x => [x.step, x.age.toFixed(6), x.lifeStage, x.height.toFixed(6), x.totalBranchLength.toFixed(6), x.branchCount, x.leafCount, x.canopyWidth.toFixed(6)].join(','))]; text = `\uFEFF${rows.join('\n')}`; type = 'text/csv;charset=utf-8'; name = 'plant-growth-metrics.csv' } else { text = JSON.stringify({ schema: 'plantsim.growth_metrics.frontend', exportedAt: new Date().toISOString(), frameCount: history.value.length, frames: history.value }, null, 2); type = 'application/json'; name = 'plant-growth-metrics.json' }; const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([text], { type })); a.download = name; a.click(); URL.revokeObjectURL(a.href); log(`已导出生长指标 ${csv ? 'CSV' : 'JSON'}。`, 'ok') }
 function sample<T>(items: T[], max: number) { if (items.length <= max) return items; const step = (items.length - 1) / (max - 1); return Array.from({ length: max }, (_, i) => items[Math.round(i * step)]) }
 function makePath(items: Point[], key: Metric) { const end = Math.max(.001, maxAge.value), top = Math.max(1, ...items.map(x => x[key])); return items.map((x, i) => `${i ? 'L' : 'M'} ${(x.age / end * 1000).toFixed(2)} ${(228 - x[key] / top * 198).toFixed(2)}`).join(' ') }
-onMounted(() => { localSeek(0); connect() }); onBeforeUnmount(() => { stopOfflinePlayback(); clearConfirmation(); socket.value?.close() })
+onMounted(() => { localSeek(0); connect(true) }); onBeforeUnmount(() => { allowReconnect = false; clearReconnectTimer(); stopOfflinePlayback(); clearConfirmation(); socket.value?.close() })
 </script>
 
 <template>
   <div class="week12-shell">
-    <header class="week12-header"><div><p class="eyebrow">WEEK 12 · GROWTH DATA LAB</p><h1>生长数据记录与回放</h1><p>逐时间步保存植物状态，回放生长过程并追踪结构指标变化。</p></div><div class="header-actions"><span class="chip" :class="connection"><i></i>{{ label }}</span><button class="ghost" @click="connect">重新连接</button></div></header>
+    <header class="week12-header"><div><p class="eyebrow">WEEK 12 · GROWTH DATA LAB</p><h1>生长数据记录与回放</h1><p>逐时间步保存植物状态，回放生长过程并追踪结构指标变化。</p></div><div class="header-actions"><span class="chip" :class="connection"><i></i>{{ label }}</span><button class="ghost" @click="connect(true)">重新连接</button></div></header>
     <section class="metrics"><article class="stat accent"><span>生长年龄</span><strong>{{ state.age.toFixed(2) }}<small> 年</small></strong><em>{{ state.lifeStage }}</em></article><article class="stat"><span>植物高度</span><strong>{{ current.height.toFixed(2) }}<small> m</small></strong><em>HEIGHT</em></article><article class="stat"><span>枝干总长度</span><strong>{{ current.totalBranchLength.toFixed(1) }}<small> m</small></strong><em>BRANCH LENGTH</em></article><article class="stat"><span>分枝 / 叶片</span><strong>{{ current.branchCount }}<small> / {{ current.leafCount }}</small></strong><em>STRUCTURE</em></article><article class="stat"><span>冠幅</span><strong>{{ current.canopyWidth.toFixed(2) }}<small> m</small></strong><em>CANOPY WIDTH</em></article></section>
     <main class="main-grid"><section class="card viewport-card"><header><span>01</span><h2>植物生长预览</h2><b>{{ playing ? 'REPLAYING' : 'PAUSED' }}</b></header><PlantViewport :light-intensity="light" :wind-intensity="wind" :playing="playing" plant-type="cherry" :interaction-mode="tool" :reset-token="resetToken" :snapshot="state.plantState" :growth-progress="viewportGrowthProgress"/><footer><div class="tools"><button :class="{ active: tool === 'select' }" @click="tool = 'select'">选择</button><button :class="{ active: tool === 'orbit' }" @click="tool = 'orbit'">旋转</button><button :class="{ active: tool === 'wind' }" @click="tool = 'wind'">风场</button></div><label>光照 <input type="range" min="0" max="1" step=".01" :value="light" @input="setLight"/></label><button class="ghost" @click="resetToken += 1">复位视角</button></footer></section><aside class="card summary"><header><span>02</span><h2>记录摘要</h2><b>{{ state.recordedFrameCount }} FRAMES</b></header><dl><div><dt>记录频率</dt><dd>每个时间步</dd></div><div><dt>已记录时长</dt><dd>{{ state.recordedEndAge.toFixed(2) }} 年</dd></div><div><dt>回放速度</dt><dd>{{ speed.toFixed(1) }}×</dd></div><div><dt>活跃节点</dt><dd>{{ state.nodeCount }}</dd></div></dl><label class="speed">回放速度 <b>{{ speed.toFixed(1) }}×</b><input type="range" min=".1" max="8" step=".1" :value="speed" @input="setSpeed"/></label><div class="exports"><button class="primary" @click="exportData(false)">导出 JSON</button><button class="ghost" @click="exportData(true)">导出 CSV</button></div><p class="hint">引擎端保存完整植物状态快照；此处可下载用于曲线分析的指标数据。</p></aside></main>
     <section class="card timeline"><header><span>03</span><h2>生长过程回放</h2><b>T = {{ age.toFixed(2) }} / {{ maxAge.toFixed(0) }} 年</b></header><div class="timeline-row"><button class="play" :disabled="!!pendingAction" :aria-label="playing ? '暂停回放' : '开始回放'" @click="toggle"><i :class="playing ? 'pause' : 'triangle'"></i></button><div class="track"><input type="range" min="0" :max="maxAge" step=".01" :value="age" @input="previewSeek" @change="commitSeek"/><i :style="{ width: `${progress}%` }"></i></div><button class="ghost" @click="reset">重置记录</button></div><div class="stages"><button v-for="x in stages" :key="x.key" :class="{ active: Math.abs(age - x.age) < .35 }" @click="stage(x)"><i></i><span>{{ x.label }}</span><small>{{ x.age }} 年</small></button></div></section>
