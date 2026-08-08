@@ -9,6 +9,7 @@
 #include <utility>
 
 #include <QDebug>
+#include <QJsonArray>
 
 #include "Algorithm/TurtleInterpreter.h"
 
@@ -206,7 +207,15 @@ void SimulationEngine::requestGrowthData() {
     // The browser needs the full skeleton snapshots to keep the viewport in
     // lock-step with the metrics timeline. File downloads can still use the
     // lightweight metrics-only archive.
-    emit growthDataAvailable(growthData_.toJson());
+    QJsonObject data = growthData_.toJson();
+    const GrowthAxisThresholds thresholds = growthClock_.timeline().thresholds();
+    data.insert("keyStages", QJsonArray{
+        QJsonObject{{"key", "seedling"}, {"label", "Seedling"}, {"age", 0.0}},
+        QJsonObject{{"key", "vegetative"}, {"label", "Vegetative"}, {"age", static_cast<double>(thresholds.seedlingEndYear)}},
+        QJsonObject{{"key", "mature"}, {"label", "Mature"}, {"age", static_cast<double>(thresholds.vegetativeEndYear)}},
+        QJsonObject{{"key", "completed"}, {"label", "Completed"}, {"age", static_cast<double>(thresholds.matureEndYear)}}
+    });
+    emit growthDataAvailable(data);
 }
 
 // ============================================================================
