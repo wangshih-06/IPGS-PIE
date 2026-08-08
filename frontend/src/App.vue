@@ -34,10 +34,10 @@ const stageNames: Record<string, string> = { seedling: '\u5e7c\u82d7', vegetativ
 const stages = ref<Stage[]>(stageListFromFrames(history.value))
 const chartHover = ref<Point | null>(null)
 const label = computed(() => ({
-  connecting: '??????',
-  connected: '?????',
-  reconnecting: `?????${reconnectDelay.value}s?`,
-  offline: '??????',
+  connecting: '正在连接引擎',
+  connected: '引擎已连接',
+  reconnecting: `正在重连（${reconnectDelay.value}s）`,
+  offline: '离线回放预览',
 }[connection.value]))
 const maxAge = computed(() => Math.max(30, state.value.recordedEndAge, history.value.at(-1)?.age ?? 0))
 const progress = computed(() => Math.min(100, age.value / maxAge.value * 100))
@@ -119,7 +119,7 @@ function toPoint(value: Record<string, unknown>): Point | null { const m = value
 function nearest(target: number) { return history.value.reduce<Point | null>((best, x) => !best || Math.abs(x.age - target) < Math.abs(best.age - target) ? x : best, null) }
 function localSeek(target: number) { const x = nearest(target); if (!x) return; age.value = x.age; state.value = { ...state.value, ...x, recordedFrameCount: history.value.length, recordedEndAge: history.value.at(-1)?.age ?? x.age } }
 function append(x: Point) { const prev = history.value.at(-1); if (!prev || Math.abs(prev.age - x.age) > .0001) { if (prev && x.age < prev.age) history.value = history.value.filter(y => y.age <= x.age + .0001); history.value.push(x) } else history.value[history.value.length - 1] = x }
-function receive(payload: Record<string, unknown>) { if (payload.type === 'error') { log(`?????${String(payload.message ?? '????')}`, 'warn'); clearConfirmation(); return } if (payload.type === 'environment_updated') { light.value = asNumber(payload.lightIntensity, light.value); return } if (payload.type === 'growth_data' && Array.isArray(payload.frames)) { const frames = payload.frames.map(x => toPoint(x as Record<string, unknown>)).filter((x): x is Point => !!x); if (frames.length) { history.value = frames; stages.value = parseStages(payload.keyStages, frames); localSeek(age.value); log(`??? ${frames.length} ???????`, 'ok') }; return } if (payload.type === 'growth_state') { const x = toPoint(payload); if (!x) return; state.value = { ...x, speed: asNumber(payload.speed, 1), mode: asNumber(payload.mode), nodeCount: asNumber(payload.nodeCount), recordedFrameCount: asNumber(payload.recordedFrameCount, history.value.length), recordedEndAge: asNumber(payload.recordedEndAge, x.age) }; age.value = x.age; speed.value = state.value.speed; playing.value = state.value.mode === 1; append(x); clearConfirmation() } }
+function receive(payload: Record<string, unknown>) { if (payload.type === 'error') { log(`引擎错误：${String(payload.message ?? '未知错误')}`, 'warn'); clearConfirmation(); return } if (payload.type === 'environment_updated') { light.value = asNumber(payload.lightIntensity, light.value); return } if (payload.type === 'growth_data' && Array.isArray(payload.frames)) { const frames = payload.frames.map(x => toPoint(x as Record<string, unknown>)).filter((x): x is Point => !!x); if (frames.length) { history.value = frames; stages.value = parseStages(payload.keyStages, frames); localSeek(age.value); log(`已载入 ${frames.length} 帧生长记录。`, 'ok') }; return } if (payload.type === 'growth_state') { const x = toPoint(payload); if (!x) return; state.value = { ...x, speed: asNumber(payload.speed, 1), mode: asNumber(payload.mode), nodeCount: asNumber(payload.nodeCount), recordedFrameCount: asNumber(payload.recordedFrameCount, history.value.length), recordedEndAge: asNumber(payload.recordedEndAge, x.age) }; age.value = x.age; speed.value = state.value.speed; playing.value = state.value.mode === 1; append(x); clearConfirmation() } }
 function clearReconnectTimer() { if (reconnectTimer) window.clearTimeout(reconnectTimer); reconnectTimer = 0 }
 function scheduleReconnect(reason: string) {
   if (!allowReconnect || reconnectTimer || isEngineConnected.value) return
