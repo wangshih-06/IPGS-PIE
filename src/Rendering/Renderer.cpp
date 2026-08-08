@@ -155,6 +155,10 @@ void Renderer::paintGL() {
         uploadPlantMeshIfNeeded();
         plantMesh_.draw(this);
     }
+    if (physicsDebugVisible_ && hasPhysicsDebugMesh_) {
+        uploadPhysicsDebugMeshIfNeeded();
+        physicsDebugMesh_.draw(this);
+    }
     shader_.release();
 }
 
@@ -240,6 +244,65 @@ void Renderer::uploadPlantMeshIfNeeded() {
     if (plantMeshUploaded_ || plantMesh_.vertexCount() == 0) return;
     if (!plantMesh_.upload(this)) return;
     plantMeshUploaded_ = true;
+}
+
+void Renderer::uploadPhysicsDebugMeshIfNeeded() {
+    if (physicsDebugMeshUploaded_ || physicsDebugMesh_.vertexCount() == 0) return;
+    if (!physicsDebugMesh_.upload(this)) return;
+    physicsDebugMeshUploaded_ = true;
+}
+
+void Renderer::setPhysicsDebugSnapshot(const PlantPhysicsDebugSnapshot& snapshot) {
+    buildPhysicsDebugMesh(snapshot);
+    hasPhysicsDebugMesh_ = physicsDebugMesh_.vertexCount() > 0;
+    physicsDebugMeshUploaded_ = false;
+    update();
+}
+
+void Renderer::setPhysicsDebugVisible(bool visible) {
+    physicsDebugVisible_ = visible;
+    update();
+}
+
+void Renderer::buildPhysicsDebugMesh(const PlantPhysicsDebugSnapshot& snapshot) {
+    QVector<MeshVertex> vertices;
+    vertices.reserve(static_cast<int>(snapshot.lengthSegments.size() * 48 +
+                                      snapshot.bendingConstraints.size() * 48 +
+                                      snapshot.branchAngleConstraints.size() * 96 +
+                                      snapshot.points.size() * 72));
+
+    const Vec3 lengthColor(0.18f, 0.92f, 0.94f);
+    const Vec3 bendColor(1.00f, 0.61f, 0.16f);
+    const Vec3 angleColor(0.74f, 0.38f, 1.00f);
+    for (const PlantPhysicsDebugSegment& segment : snapshot.lengthSegments) {
+        if ((segment.end - segment.start).squaredNorm() > 1.0e-8f) {
+            addCylinder(vertices, segment.start, segment.end, 0.010f, lengthColor);
+        }
+    }
+    for (const PlantPhysicsDebugBend& bend : snapshot.bendingConstraints) {
+        if ((bend.tip - bend.base).squaredNorm() > 1.0e-8f) {
+            addCylinder(vertices, bend.base, bend.tip, 0.008f, bendColor);
+        }
+    }
+    for (const PlantPhysicsDebugAngle& angle : snapshot.branchAngleConstraints) {
+        if ((angle.firstChild - angle.parent).squaredNorm() > 1.0e-8f) {
+            addCylinder(vertices, angle.parent, angle.firstChild, 0.006f, angleColor);
+        }
+        if ((angle.secondChild - angle.parent).squaredNorm() > 1.0e-8f) {
+            addCylinder(vertices, angle.parent, angle.secondChild, 0.006f, angleColor);
+        }
+    }
+    for (const PlantPhysicsDebugPoint& point : snapshot.points) {
+        const float radius = std::max(0.012f, point.radius * 1.4f);
+        const Vec3 color = point.fixed ? Vec3(1.0f, 0.18f, 0.16f) : Vec3(0.42f, 1.0f, 0.38f);
+        addCylinder(vertices, point.position - Vec3::UnitX() * radius,
+                    point.position + Vec3::UnitX() * radius, radius * 0.30f, color);
+        addCylinder(vertices, point.position - Vec3::UnitY() * radius,
+                    point.position + Vec3::UnitY() * radius, radius * 0.30f, color);
+        addCylinder(vertices, point.position - Vec3::UnitZ() * radius,
+                    point.position + Vec3::UnitZ() * radius, radius * 0.30f, color);
+    }
+    physicsDebugMesh_.setVertices(vertices);
 }
 
 void Renderer::buildPlantMesh(const SurfaceMesh& mesh) {

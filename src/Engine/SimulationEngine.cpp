@@ -41,6 +41,7 @@ SimulationEngine::SimulationEngine(QObject* parent)
     fieldSettings.jointSmoothness = 0.65f;
     metaballSettings_ = fieldSettings;
     metaballField_.rebuildFromPlant(plantModel_, fieldSettings);
+    rebuildPhysicsModel();
     initialPlantSnapshot_ = plantModel_.toJson();
     growthData_.capture(plantModel_);
 
@@ -107,6 +108,20 @@ void SimulationEngine::setGravitropismWeight(float weight) {
     emit tropismUpdated(environment_.phototropismWeight, environment_.gravitropismWeight);
 }
 
+void SimulationEngine::setPhysicsEnabled(bool enabled) {
+    if (physicsEnabled_ == enabled) return;
+    physicsEnabled_ = enabled;
+    rebuildPhysicsModel();
+    emit growthLogMessage(enabled ? QStringLiteral("Plant PBD solver enabled.")
+                                    : QStringLiteral("Plant PBD solver disabled."));
+    emitPhysicsDebugSnapshot();
+}
+
+void SimulationEngine::setPhysicsDebugEnabled(bool enabled) {
+    physicsDebugEnabled_ = enabled;
+    emitPhysicsDebugSnapshot();
+}
+
 void SimulationEngine::setLightSourcePosition(int lightId, float x, float y, float z) {
     for (auto& light : environment_.lightSources) {
         if (light.id == lightId) {
@@ -140,6 +155,7 @@ void SimulationEngine::resetGrowth(float initialYears) {
         plantModel_ = std::move(restored);
     }
     growthClock_.reset(initialYears);
+    rebuildPhysicsModel();
     rebuildMetaballField();
     rebuildPlantSurface();
     emit plantSurfaceUpdated(plantSurface_);
@@ -171,6 +187,7 @@ void SimulationEngine::seekGrowth(float age) {
     dynamicBranching_.reset();
     growthClock_.reset(frame->age);
     environment_.time = frame->age;
+    rebuildPhysicsModel();
     rebuildMetaballField();
     // Timeline scrubbing must stay responsive; use a coarser preview surface.
     // The next live tick rebuilds the normal-resolution surface (0.18m grid).
@@ -255,6 +272,24 @@ void SimulationEngine::onGrowthTickProduced(const GrowthSample& sample) {
     }
     plantModel_.applyGrowthSample(sample);
     environment_.time = sample.age;
+
+    if (physicsEnabled_ || physicsDebugEnabled_) {
+        QString physicsError;
+        if (!physicsSolver_.synchronizeRestConfiguration(plantModel_, &physicsError)) {
+            qWarning().noquote() << QStringLiteral("Plant physics synchronization failed: %1").arg(physicsError);
+        } else if (physicsEnabled_) {
+            const float phase = sample.age * 1.7f;
+            const Vec3 wind(std::sin(phase) * environment_.windIntensity * 1.8f,
+                            0.0f,
+                            std::cos(phase * 0.73f) * environment_.windIntensity * 1.2f);
+            physicsSolver_.step(1.0f / 60.0f, wind);
+            if (!physicsSolver_.applyToPlant(&plantModel_, &physicsError)) {
+                qWarning().noquote() << QStringLiteral("Plant physics application failed: %1").arg(physicsError);
+            }
+        }
+        emitPhysicsDebugSnapshot();
+    }
+
     if (sample.age != previousAge) {
         rebuildMetaballField();
         rebuildPlantSurface();
@@ -302,6 +337,17 @@ void SimulationEngine::captureGrowthFrameIfNeeded() {
 void SimulationEngine::onGrowthClockLog(const QString& message) {
     qInfo().noquote() << QStringLiteral("[Growth] %1").arg(message);
     emit growthLogMessage(message);
+}
+
+void SimulationEngine::rebuildPhysicsModel() {
+    QString error;
+    if (!physicsSolver_.rebuildFromPlant(plantModel_, &error)) {
+        qWarning().noquote() << QStringLiteral("Plant physics rebuild failed: %1").arg(error);
+    }
+}
+
+void SimulationEngine::emitPhysicsDebugSnapshot() {
+    if (physicsDebugEnabled_) emit physicsDebugUpdated(physicsSolver_.debugSnapshot());
 }
 
 void SimulationEngine::rebuildMetaballField() {

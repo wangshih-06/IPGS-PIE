@@ -129,6 +129,9 @@ public:
     // Builds mass points and structural constraints from the skeleton. The
     // model remains unchanged until applyToPlant() is called.
     bool rebuildFromPlant(const PlantModel& model, QString* error = nullptr);
+    // Updates growing rest lengths, masses and the fixed-root anchor without
+    // discarding velocities. A topology change automatically rebuilds.
+    bool synchronizeRestConfiguration(const PlantModel& model, QString* error = nullptr);
     void clear();
     bool empty() const { return massPoints_.empty(); }
 

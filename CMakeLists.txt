@@ -124,6 +124,7 @@ target_link_libraries(PlantSimulationSystem PRIVATE
     PlantLSystem
     PlantImplicitSurface
     PlantGrowth
+    PlantPhysics
     PlantGeometry
     Qt5::Widgets
     Qt5::OpenGL

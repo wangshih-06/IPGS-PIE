@@ -3,6 +3,8 @@
 #include "Engine/SimulationEngine.h"
 #include "Rendering/Renderer.h"
 
+#include <algorithm>
+
 #include <QCheckBox>
 #include <QFrame>
 #include <QHBoxLayout>
@@ -166,6 +168,22 @@ EngineWindow::EngineWindow(SimulationEngine* simulationEngine, QWidget* parent)
     rotateCheck->setChecked(true);
     rotateCheck->setToolTip(QStringLiteral("Continuously rotate the reference scene"));
     inspectorLayout->addWidget(rotateCheck);
+    inspectorLayout->addSpacing(10);
+
+    auto* physicsCheck = new QCheckBox(QStringLiteral("Enable PBD physics"), inspector);
+    physicsCheck->setChecked(simulationEngine_->physicsEnabled());
+    physicsCheck->setToolTip(QStringLiteral("Solve plant length, bend and branch-angle constraints"));
+    inspectorLayout->addWidget(physicsCheck);
+    inspectorLayout->addSpacing(7);
+
+    auto* physicsDebugCheck = new QCheckBox(QStringLiteral("Physics debug overlay"), inspector);
+    physicsDebugCheck->setChecked(simulationEngine_->physicsDebugEnabled());
+    physicsDebugCheck->setToolTip(QStringLiteral("Show mass points and structural constraint families"));
+    inspectorLayout->addWidget(physicsDebugCheck);
+    inspectorLayout->addSpacing(7);
+    physicsStatsValueLabel_ = createLabel(QStringLiteral("P 0 | L 0 | B 0 | A 0"), QStringLiteral("Footnote"), inspector);
+    physicsStatsValueLabel_->setWordWrap(true);
+    inspectorLayout->addWidget(physicsStatsValueLabel_);
     inspectorLayout->addSpacing(18);
     inspectorLayout->addWidget(createDivider(inspector));
     inspectorLayout->addSpacing(18);
@@ -256,6 +274,9 @@ EngineWindow::EngineWindow(SimulationEngine* simulationEngine, QWidget* parent)
 
     connect(resetButton, &QPushButton::clicked, renderer_, &Renderer::resetCamera);
     connect(rotateCheck, &QCheckBox::toggled, renderer_, &Renderer::setAutoRotate);
+    connect(physicsCheck, &QCheckBox::toggled, simulationEngine_, &SimulationEngine::setPhysicsEnabled);
+    connect(physicsDebugCheck, &QCheckBox::toggled, simulationEngine_, &SimulationEngine::setPhysicsDebugEnabled);
+    connect(physicsDebugCheck, &QCheckBox::toggled, renderer_, &Renderer::setPhysicsDebugVisible);
     connect(lightSlider_, &QSlider::valueChanged, this, &EngineWindow::onLightSliderChanged);
     connect(photoSlider_, &QSlider::valueChanged, this, &EngineWindow::onPhotoSliderChanged);
     connect(graviSlider_, &QSlider::valueChanged, this, &EngineWindow::onGraviSliderChanged);
@@ -278,6 +299,10 @@ EngineWindow::EngineWindow(SimulationEngine* simulationEngine, QWidget* parent)
             this, &EngineWindow::showEngineMessage);
     connect(simulationEngine_, &SimulationEngine::plantSurfaceUpdated,
             renderer_, &Renderer::setPlantSurface);
+    connect(simulationEngine_, &SimulationEngine::physicsDebugUpdated,
+            renderer_, &Renderer::setPhysicsDebugSnapshot);
+    connect(simulationEngine_, &SimulationEngine::physicsDebugUpdated,
+            this, &EngineWindow::onPhysicsDebugUpdated);
 
     pauseButton_->setEnabled(false);
     resumeButton_->setEnabled(false);
@@ -287,6 +312,9 @@ EngineWindow::EngineWindow(SimulationEngine* simulationEngine, QWidget* parent)
     onTropismUpdated(simulationEngine_->environment().phototropismWeight,
                      simulationEngine_->environment().gravitropismWeight);
     renderer_->setPlantSurface(simulationEngine_->plantSurface());
+    renderer_->setPhysicsDebugSnapshot(simulationEngine_->physicsSolver().debugSnapshot());
+    renderer_->setPhysicsDebugVisible(simulationEngine_->physicsDebugEnabled());
+    onPhysicsDebugUpdated(simulationEngine_->physicsSolver().debugSnapshot());
 }
 
 void EngineWindow::applyTheme() {
@@ -370,6 +398,19 @@ void EngineWindow::onTropismUpdated(float photoWeight, float graviWeight) {
     if (graviValueLabel_) {
         graviValueLabel_->setText(QStringLiteral("%1").arg(graviWeight, 0, 'f', 2));
     }
+}
+
+void EngineWindow::onPhysicsDebugUpdated(const PlantPhysicsDebugSnapshot& snapshot) {
+    if (!physicsStatsValueLabel_) return;
+    const PlantPhysicsStatistics& stats = snapshot.statistics;
+    physicsStatsValueLabel_->setText(QStringLiteral(
+        "P %1 | L %2 | B %3 | A %4\nmax residual: %5")
+        .arg(stats.particleCount)
+        .arg(stats.lengthConstraintCount)
+        .arg(stats.bendingConstraintCount)
+        .arg(stats.branchAngleConstraintCount)
+        .arg(std::max(stats.maxLengthError,
+                      std::max(stats.maxBendingError, stats.maxBranchAngleErrorRadians)), 0, 'g', 3));
 }
 
 void EngineWindow::onStartClicked() {

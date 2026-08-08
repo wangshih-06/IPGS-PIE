@@ -21,6 +21,7 @@
 #include "Geometry/MarchingCubes.h"
 #include "Implicit/MetaballField.h"
 #include "Plant/PlantModel.h"
+#include "Physics/PlantPhysicsSolver.h"
 
 class SimulationEngine : public QObject {
     Q_OBJECT
@@ -46,12 +47,17 @@ public:
     const GrowthEventManager& growthEvents() const { return growthEvents_; }
     const GrowthKeyframeStore& growthKeyframes() const { return keyframes_; }
     const GrowthDataRecorder& growthData() const { return growthData_; }
+    const PlantPhysicsSolver& physicsSolver() const { return physicsSolver_; }
+    bool physicsEnabled() const { return physicsEnabled_; }
+    bool physicsDebugEnabled() const { return physicsDebugEnabled_; }
 
 public slots:
     void setLightIntensity(float intensity);
     void setPhototropismWeight(float weight);
     void setGravitropismWeight(float weight);
     void setLightSourcePosition(int lightId, float x, float y, float z);
+    void setPhysicsEnabled(bool enabled);
+    void setPhysicsDebugEnabled(bool enabled);
 
     // 生长时间轴控制
     void startGrowth();
@@ -81,6 +87,7 @@ signals:
     void growthKeyframeCaptured(int keyframeId, float age);
     void growthDataAvailable(const QJsonObject& data);
     void plantSurfaceUpdated(const SurfaceMesh& mesh);
+    void physicsDebugUpdated(const PlantPhysicsDebugSnapshot& snapshot);
 
 private slots:
     void onGrowthTickProduced(const GrowthSample& sample);
@@ -93,6 +100,8 @@ private:
     void captureGrowthFrameIfNeeded();
     GrowthResourceState resourceState() const;
     void collectAllNodePositions(const PlantNode* node, std::vector<Vec3>* positions) const;
+    void rebuildPhysicsModel();
+    void emitPhysicsDebugSnapshot();
 
     EnvironmentParams environment_;
     LSystem lSystem_;
@@ -106,6 +115,9 @@ private:
     GrowthEventManager growthEvents_;
     GrowthKeyframeStore keyframes_;
     GrowthDataRecorder growthData_;
+    PlantPhysicsSolver physicsSolver_;
+    bool physicsEnabled_ = false;
+    bool physicsDebugEnabled_ = false;
     bool restoringRecordedFrame_ = false;
     QJsonObject initialPlantSnapshot_;
     float nextAutoKeyframeAge_ = 1.0f;

@@ -11,6 +11,7 @@
 #include "Rendering/Light.h"
 #include "Rendering/Mesh.h"
 #include "Rendering/Shader.h"
+#include "Physics/PlantPhysicsSolver.h"
 
 class QMouseEvent;
 class QWheelEvent;
@@ -29,6 +30,8 @@ public slots:
     // 第9周：接收植物表面网格（每次生长 tick 由 SimulationEngine 重新提取）
     void setPlantSurface(const SurfaceMesh& mesh);
     void clearPlantSurface();
+    void setPhysicsDebugSnapshot(const PlantPhysicsDebugSnapshot& snapshot);
+    void setPhysicsDebugVisible(bool visible);
 
 protected:
     void initializeGL() override;
@@ -43,12 +46,18 @@ private:
     void buildReferenceMesh();
     void buildPlantMesh(const SurfaceMesh& mesh);
     void uploadPlantMeshIfNeeded();
+    void buildPhysicsDebugMesh(const PlantPhysicsDebugSnapshot& snapshot);
+    void uploadPhysicsDebugMeshIfNeeded();
 
     Shader shader_;
     Mesh mesh_;
     Mesh plantMesh_;
+    Mesh physicsDebugMesh_;
     bool hasPlantMesh_ = false;
     bool plantMeshUploaded_ = false;
+    bool hasPhysicsDebugMesh_ = false;
+    bool physicsDebugMeshUploaded_ = false;
+    bool physicsDebugVisible_ = false;
     Camera camera_;
     Light light_;
     EnvironmentParams environment_;

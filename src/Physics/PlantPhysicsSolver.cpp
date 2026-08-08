@@ -168,6 +168,67 @@ bool PlantPhysicsSolver::rebuildFromPlant(const PlantModel& model, QString* erro
     return true;
 }
 
+bool PlantPhysicsSolver::synchronizeRestConfiguration(const PlantModel& model, QString* error) {
+    if (massPoints_.empty() || massPoints_.size() != model.nodeCount()) {
+        return rebuildFromPlant(model, error);
+    }
+
+    for (PlantMassPoint& point : massPoints_) {
+        const PlantNode* node = model.findNode(point.nodeId);
+        if (!node || (point.fixed != (node->parent == nullptr))) {
+            return rebuildFromPlant(model, error);
+        }
+        const float segmentLength = node->parent ? edgeLength(*node->parent, *node) : 0.02f;
+        point.mass = nodeMass(node->radius, segmentLength);
+        point.inverseMass = point.fixed ? 0.0f : 1.0f / point.mass;
+        if (point.fixed) {
+            point.position = node->position;
+            point.predictedPosition = node->position;
+            point.velocity = Vec3::Zero();
+        }
+    }
+
+    for (PlantLengthConstraint& constraint : lengthConstraints_) {
+        if (constraint.parentIndex < 0 || constraint.childIndex < 0 ||
+            constraint.parentIndex >= static_cast<int>(massPoints_.size()) ||
+            constraint.childIndex >= static_cast<int>(massPoints_.size())) {
+            return rebuildFromPlant(model, error);
+        }
+        const PlantNode* parent = model.findNode(massPoints_[constraint.parentIndex].nodeId);
+        const PlantNode* child = model.findNode(massPoints_[constraint.childIndex].nodeId);
+        if (!parent || !child || child->parent != parent) return rebuildFromPlant(model, error);
+        constraint.restLength = edgeLength(*parent, *child);
+        constraint.stiffness = branchStiffnessForChild(model, child->id);
+    }
+
+    for (PlantBendingConstraint& constraint : bendingConstraints_) {
+        if (constraint.baseIndex < 0 || constraint.tipIndex < 0 ||
+            constraint.baseIndex >= static_cast<int>(massPoints_.size()) ||
+            constraint.tipIndex >= static_cast<int>(massPoints_.size())) return rebuildFromPlant(model, error);
+        const PlantNode* base = model.findNode(massPoints_[constraint.baseIndex].nodeId);
+        const PlantNode* tip = model.findNode(massPoints_[constraint.tipIndex].nodeId);
+        if (!base || !tip) return rebuildFromPlant(model, error);
+        constraint.restChordLength = std::max(kMinimumRestLength, (tip->position - base->position).norm());
+    }
+
+    for (PlantBranchAngleConstraint& constraint : branchAngleConstraints_) {
+        if (constraint.parentIndex < 0 || constraint.firstChildIndex < 0 || constraint.secondChildIndex < 0 ||
+            constraint.parentIndex >= static_cast<int>(massPoints_.size()) ||
+            constraint.firstChildIndex >= static_cast<int>(massPoints_.size()) ||
+            constraint.secondChildIndex >= static_cast<int>(massPoints_.size())) return rebuildFromPlant(model, error);
+        const PlantNode* parent = model.findNode(massPoints_[constraint.parentIndex].nodeId);
+        const PlantNode* first = model.findNode(massPoints_[constraint.firstChildIndex].nodeId);
+        const PlantNode* second = model.findNode(massPoints_[constraint.secondChildIndex].nodeId);
+        if (!parent || !first || !second || first->parent != parent || second->parent != parent) {
+            return rebuildFromPlant(model, error);
+        }
+        constraint.restAngleRadians = includedAngle(first->position - parent->position,
+                                                    second->position - parent->position);
+    }
+    updateStatistics();
+    return true;
+}
+
 void PlantPhysicsSolver::resetDynamics() {
     for (PlantMassPoint& point : massPoints_) {
         point.predictedPosition = point.position;

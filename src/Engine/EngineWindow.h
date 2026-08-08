@@ -9,6 +9,7 @@ class QPushButton;
 class QSlider;
 class SimulationEngine;
 class Renderer;
+struct PlantPhysicsDebugSnapshot;
 
 class EngineWindow final : public QMainWindow {
     Q_OBJECT
@@ -26,6 +27,7 @@ private slots:
     void onPhotoSliderChanged(int value);
     void onGraviSliderChanged(int value);
     void onTropismUpdated(float photoWeight, float graviWeight);
+    void onPhysicsDebugUpdated(const PlantPhysicsDebugSnapshot& snapshot);
 
     // 生长时间轴 UI
     void onStartClicked();
@@ -50,6 +52,7 @@ private:
     QLabel* photoValueLabel_ = nullptr;
     QSlider* graviSlider_ = nullptr;
     QLabel* graviValueLabel_ = nullptr;
+    QLabel* physicsStatsValueLabel_ = nullptr;
 
     // 生长时间轴控件
     QPushButton* startButton_ = nullptr;
