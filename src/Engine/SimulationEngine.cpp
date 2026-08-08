@@ -198,7 +198,10 @@ void SimulationEngine::jumpToGrowthStage(const QString& stage) {
 }
 
 void SimulationEngine::requestGrowthData() {
-    emit growthDataAvailable(growthData_.metricsToJson());
+    // The browser needs the full skeleton snapshots to keep the viewport in
+    // lock-step with the metrics timeline. File downloads can still use the
+    // lightweight metrics-only archive.
+    emit growthDataAvailable(growthData_.toJson());
 }
 
 // ============================================================================
@@ -332,5 +335,6 @@ GrowthStateReport SimulationEngine::buildReport(const GrowthSample& sample) cons
     report.metrics = GrowthDataRecorder::measure(plantModel_);
     report.recordedFrameCount = static_cast<int>(growthData_.size());
     report.recordedEndAge = growthData_.empty() ? 0.0f : growthData_.frames().back().age;
+    report.plantState = plantModel_.toJson();
     return report;
 }

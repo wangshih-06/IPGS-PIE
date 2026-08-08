@@ -123,7 +123,8 @@ plantState: PlantModel::toJson() 完整快照
   "totalBranchLength": 18.76,
   "canopyWidth": 2.85,
   "recordedFrameCount": 76,
-  "recordedEndAge": 2.5
+  "recordedEndAge": 2.5,
+  "plantState": { "schema": "plantsim.skeleton", "skeleton": { "nodes": [], "leaves": [] } }
 }
 ```
 
@@ -132,7 +133,7 @@ plantState: PlantModel::toJson() 完整快照
 ```jsonc
 {
   "type": "growth_data",
-  "schema": "plantsim.growth_metrics",
+  "schema": "plantsim.growth_recording",
   "version": 1,
   "frameCount": 76,
   "frames": [
@@ -146,6 +147,10 @@ plantState: PlantModel::toJson() 完整快照
         "branchCount": 0,
         "leafCount": 0,
         "canopyWidth": 0.0
+      },
+      "plantState": {
+        "schema": "plantsim.skeleton",
+        "skeleton": { "nodes": [], "leaves": [] }
       }
     }
   ]

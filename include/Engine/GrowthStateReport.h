@@ -3,6 +3,8 @@
 // ============================================================================
 #pragma once
 
+#include <QJsonObject>
+
 #include "Common/MathTypes.h"
 #include "Engine/GrowthTimeline.h"
 #include "Engine/GrowthDataRecorder.h"
@@ -23,4 +25,6 @@ struct GrowthStateReport {
     PlantGrowthMetrics metrics;
     int              recordedFrameCount = 0;
     float            recordedEndAge = 0.0f;
+    // Exact PlantModel snapshot used by browser replay preview.
+    QJsonObject      plantState;
 };

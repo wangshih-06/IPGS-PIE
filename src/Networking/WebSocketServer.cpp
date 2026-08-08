@@ -309,7 +309,8 @@ void WebSocketServer::broadcastGrowthState(const GrowthStateReport& report) {
         {"totalBranchLength", static_cast<double>(metrics.totalBranchLength)},
         {"canopyWidth", static_cast<double>(metrics.canopyWidth)},
         {"recordedFrameCount", report.recordedFrameCount},
-        {"recordedEndAge", static_cast<double>(report.recordedEndAge)}
+        {"recordedEndAge", static_cast<double>(report.recordedEndAge)},
+        {"plantState", report.plantState}
     };
     const QByteArray payload = QJsonDocument(state).toJson(QJsonDocument::Compact);
     for (auto it = clients_.begin(); it != clients_.end(); ++it) {

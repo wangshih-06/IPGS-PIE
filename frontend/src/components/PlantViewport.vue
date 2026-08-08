@@ -7,6 +7,9 @@ type Point3 = { x: number; y: number; z: number }
 type Branch = { points: Point3[]; width: number; color: string }
 type Leaf = { center: Point3; size: number; angle: number; color: string; kind: 'leaf' | 'blossom' | 'needle' | 'passion-leaf' | 'passion-flower' | 'fruit' }
 type PlantScene = { label: string; branches: Branch[]; leaves: Leaf[]; accent: string }
+type SnapshotNode = { id: number; parentId: number; position: [number, number, number]; radius?: number; active?: boolean; type?: string }
+type SnapshotLeaf = { id: number; parentNodeId: number; position: [number, number, number]; size?: [number, number]; active?: boolean }
+type PlantSnapshot = { schema?: string; plant?: { name?: string; species?: string; lifeStage?: string }; skeleton?: { nodes?: SnapshotNode[]; leaves?: SnapshotLeaf[] } }
 
 const props = withDefaults(defineProps<{
   lightIntensity: number
@@ -15,6 +18,8 @@ const props = withDefaults(defineProps<{
   plantType: PlantType
   interactionMode: InteractionMode
   resetToken: number
+  snapshot?: PlantSnapshot
+  growthProgress?: number
 }>(), {
   lightIntensity: 0.8,
   windIntensity: 0.28,
@@ -22,6 +27,8 @@ const props = withDefaults(defineProps<{
   plantType: 'cherry',
   interactionMode: 'orbit',
   resetToken: 0,
+  snapshot: undefined,
+  growthProgress: 1,
 })
 
 const canvasRef = ref<HTMLCanvasElement | null>(null)
@@ -244,12 +251,69 @@ function buildPassionFruit(): PlantScene {
   return { label: 'PASSION FRUIT VINE', branches, leaves, accent: '#a992d1' }
 }
 
-const scene = computed(() => {
+function snapshotPoint(value: [number, number, number] | undefined): Point3 | null {
+  if (!value || value.length !== 3 || !value.every(Number.isFinite)) return null
+  return point(value[0], value[1], value[2])
+}
+
+function buildRecordedScene(snapshot: PlantSnapshot | undefined): PlantScene | null {
+  const skeleton = snapshot?.skeleton
+  if (snapshot?.schema !== 'plantsim.skeleton' || !Array.isArray(skeleton?.nodes) || !skeleton.nodes.length) return null
+  const nodes = skeleton.nodes.filter(node => node.active !== false)
+  const byId = new Map(nodes.map(node => [node.id, node]))
+  const branches: Branch[] = []
+  for (const node of nodes) {
+    const parent = byId.get(node.parentId)
+    const from = snapshotPoint(parent?.position)
+    const to = snapshotPoint(node.position)
+    if (!parent || !from || !to) continue
+    const isRoot = node.type === 'root'
+    branches.push({
+      points: [from, to],
+      width: Math.max(0.028, Math.min(0.34, (Number.isFinite(node.radius) ? node.radius! : 0.03) * 2.1)),
+      color: isRoot ? '#725342' : node.type === 'stem' ? '#91603f' : '#ad7149',
+    })
+  }
+  const leaves: Leaf[] = []
+  for (const leaf of skeleton.leaves ?? []) {
+    const center = leaf.active === false ? null : snapshotPoint(leaf.position)
+    if (!center) continue
+    const dimensions = leaf.size ?? [0.12, 0.06]
+    const size = Math.max(0.05, Math.min(0.28, Math.max(dimensions[0] || 0, dimensions[1] || 0)))
+    leaves.push({ center, size, angle: Math.atan2(center.z, center.x), color: '#78b96e', kind: 'leaf' })
+  }
+  if (!branches.length && !leaves.length) return null
+  const identity = snapshot.plant?.name || snapshot.plant?.species || 'SIMULATION SKELETON'
+  return { label: `${identity.toUpperCase()} / ${nodes.length} NODES`, branches, leaves, accent: '#86db9b' }
+}
+
+function scaleFallbackScene(source: PlantScene, progress: number): PlantScene {
+  const t = Math.max(0.035, Math.min(1, progress))
+  const horizontal = 0.25 + t * 0.75
+  const visibleLeaves = Math.max(0, Math.ceil(source.leaves.length * Math.max(0, (t - 0.12) / 0.88)))
+  return {
+    label: `${source.label} / OFFLINE GROWTH`,
+    accent: source.accent,
+    branches: source.branches.map(branch => ({
+      ...branch,
+      width: Math.max(0.016, branch.width * (0.28 + t * 0.72)),
+      points: branch.points.map(item => point(item.x * horizontal, item.y * t, item.z * horizontal)),
+    })),
+    leaves: source.leaves.slice(0, visibleLeaves).map(leaf => ({
+      ...leaf,
+      size: leaf.size * (0.25 + t * 0.75),
+      center: point(leaf.center.x * horizontal, leaf.center.y * t, leaf.center.z * horizontal),
+    })),
+  }
+}
+
+const fallbackScene = computed(() => {
   if (props.plantType === 'willow') return buildWillow()
   if (props.plantType === 'pine') return buildPine()
   if (props.plantType === 'passion') return buildPassionFruit()
   return buildCherry()
 })
+const scene = computed(() => buildRecordedScene(props.snapshot) ?? scaleFallbackScene(fallbackScene.value, props.growthProgress))
 
 function resizeCanvas(canvas: HTMLCanvasElement) {
   const rect = canvas.getBoundingClientRect()
