@@ -13,3 +13,8 @@
 .chart-tooltip span{color:#96bda2}
 .chart-tooltip strong{color:#9be7af;font:600 13px 'DM Mono',monospace}
 .stages{grid-template-columns:repeat(auto-fit,minmax(96px,1fr))}
+
+/* Stage 6: keyboard and assistive-technology support. */
+button:focus-visible,input:focus-visible{outline:2px solid #f0d28d;outline-offset:3px}
+.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+.stages button[aria-pressed="true"] span{font-weight:700}

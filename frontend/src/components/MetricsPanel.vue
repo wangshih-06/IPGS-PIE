@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { computed } from 'vue'
 const props = defineProps<{
   recordedFrameCount: number
   recordedEndAge: number
@@ -23,6 +24,8 @@ const ui = {
   hint: '\u5f15\u64ce\u7aef\u4fdd\u5b58\u5b8c\u6574\u690d\u7269\u72b6\u6001\u5feb\u7167\uff1b\u6b64\u5904\u53ef\u4e0b\u8f7d\u7528\u4e8e\u66f2\u7ebf\u5206\u6790\u7684\u6307\u6807\u6570\u636e\u3002',
 }
 
+const speedText = computed(() => `\u5f53\u524d\u56de\u653e\u901f\u5ea6 ${props.speed.toFixed(1)} \u500d`)
+
 function updateSpeed(event: Event) {
   emit('speedChange', Number((event.target as HTMLInputElement).value))
 }
@@ -38,11 +41,11 @@ function updateSpeed(event: Event) {
       <div><dt>{{ ui.activeNodes }}</dt><dd>{{ props.nodeCount }}</dd></div>
     </dl>
     <label class="speed">{{ ui.speed }} <b>{{ props.speed.toFixed(1) }}&#215;</b>
-      <input type="range" min=".1" max="8" step=".1" :value="props.speed" @input="updateSpeed">
+      <input type="range" min=".1" max="8" step=".1" :value="props.speed" :aria-valuetext="speedText" @input="updateSpeed">
     </label>
     <div class="exports">
-      <button class="primary" @click="emit('export', 'json')">{{ ui.exportJson }}</button>
-      <button class="ghost" @click="emit('export', 'csv')">{{ ui.exportCsv }}</button>
+      <button type="button" class="primary" @click="emit('export', 'json')">{{ ui.exportJson }}</button>
+      <button type="button" class="ghost" @click="emit('export', 'csv')">{{ ui.exportCsv }}</button>
     </div>
     <p class="hint">{{ ui.hint }}</p>
   </aside>

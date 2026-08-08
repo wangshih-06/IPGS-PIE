@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { computed } from 'vue'
 import { stageTitle, type Stage } from '../lib/growthData'
 
 const props = defineProps<{
@@ -25,6 +26,12 @@ const ui = {
   reset: '\u91cd\u7f6e\u8bb0\u5f55',
 }
 
+const positionText = computed(() => `\u5f53\u524d\u56de\u653e\u4f4d\u7f6e\uff1a${props.age.toFixed(2)} \u5e74\uff0c\u603b\u65f6\u957f ${props.maxAge.toFixed(2)} \u5e74`)
+
+function isActive(stage: Stage) {
+  return Math.abs(props.age - stage.age) < 0.35
+}
+
 function inputAge(event: Event) {
   return Number((event.target as HTMLInputElement).value)
 }
@@ -34,15 +41,15 @@ function inputAge(event: Event) {
   <section class="card timeline">
     <header><span>03</span><h2>{{ ui.title }}</h2><b>T = {{ props.age.toFixed(2) }} / {{ props.maxAge.toFixed(0) }} &#24180;</b></header>
     <div class="timeline-row">
-      <button class="play" :disabled="props.pending" :aria-label="props.playing ? ui.pause : ui.play" @click="emit('toggle')"><i :class="props.playing ? 'pause' : 'triangle'"></i></button>
+      <button type="button" class="play" :disabled="props.pending" :aria-label="props.playing ? ui.pause : ui.play" @click="emit('toggle')"><i :class="props.playing ? 'pause' : 'triangle'"></i></button>
       <div class="track">
-        <input type="range" min="0" :max="props.maxAge" step=".01" :value="props.age" @input="emit('preview', inputAge($event))" @change="emit('seek', inputAge($event))">
+        <input type="range" min="0" :max="props.maxAge" step=".01" :value="props.age" :aria-valuetext="positionText" @input="emit('preview', inputAge($event))" @change="emit('seek', inputAge($event))">
         <i :style="{ width: `${props.progress}%` }"></i>
       </div>
-      <button class="ghost" @click="emit('reset')">{{ ui.reset }}</button>
+      <button type="button" class="ghost" @click="emit('reset')">{{ ui.reset }}</button>
     </div>
     <div class="stages">
-      <button v-for="stage in props.stages" :key="stage.key" :class="{ active: Math.abs(props.age - stage.age) < .35 }" @click="emit('stage', stage)">
+      <button v-for="stage in props.stages" :key="stage.key" type="button" :class="{ active: isActive(stage) }" :aria-pressed="isActive(stage)" :aria-current="isActive(stage) ? 'step' : undefined" @click="emit('stage', stage)">
         <i></i><span>{{ stageTitle(stage) }}</span><small>{{ stage.age }} &#24180;</small>
       </button>
     </div>

@@ -7,7 +7,7 @@ const title = '\u56de\u653e\u4e8b\u4ef6'
 </script>
 
 <template>
-  <section class="card events">
+  <section class="card events" aria-live="polite">
     <header><span>05</span><h2>{{ title }}</h2></header>
     <div v-if="props.logs.length" class="event-list"><div v-for="log in props.logs" :key="log.time + log.text"><time>{{ log.time }}</time><i :class="log.tone"></i><p>{{ log.text }}</p></div></div>
     <p v-else class="empty">{{ emptyText }}</p>
