@@ -9,6 +9,8 @@
 #include <QHash>
 #include <QPointer>
 
+#include "Engine/GrowthStateReport.h"
+
 class QTcpServer;
 class QTcpSocket;
 
@@ -27,11 +29,21 @@ signals:
     void phototropismRequested(float weight);
     void gravitropismRequested(float weight);
     void lightPositionRequested(int lightId, float x, float y, float z);
+    void growthStartRequested();
+    void growthPauseRequested();
+    void growthResumeRequested();
+    void growthResetRequested();
+    void growthSeekRequested(float age);
+    void growthStageRequested(const QString& stage);
+    void growthSpeedRequested(float speed);
+    void growthDataRequested();
     void logMessage(const QString& message);
 
 public slots:
     void broadcastState(float lightIntensity);
     void broadcastTropismState(float photoWeight, float graviWeight);
+    void broadcastGrowthState(const GrowthStateReport& report);
+    void broadcastGrowthData(const QJsonObject& data);
 
 private slots:
     void onNewConnection();

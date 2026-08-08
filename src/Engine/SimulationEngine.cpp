@@ -5,6 +5,7 @@
 #include "Engine/SimulationEngine.h"
 
 #include <algorithm>
+#include <cmath>
 #include <utility>
 
 #include <QDebug>
@@ -40,6 +41,7 @@ SimulationEngine::SimulationEngine(QObject* parent)
     metaballSettings_ = fieldSettings;
     metaballField_.rebuildFromPlant(plantModel_, fieldSettings);
     initialPlantSnapshot_ = plantModel_.toJson();
+    growthData_.capture(plantModel_);
 
     connect(&growthClock_, &GrowthClock::tickProduced,
             this, &SimulationEngine::onGrowthTickProduced);
@@ -129,6 +131,7 @@ void SimulationEngine::resetGrowth(float initialYears) {
     dynamicBranching_.reset();
     growthEvents_.clear();
     keyframes_.clear();
+    growthData_.clear();
     nextAutoKeyframeAge_ = std::max(1.0f, initialYears + 1.0f);
     PlantModel restored;
     QString error;
@@ -139,14 +142,76 @@ void SimulationEngine::resetGrowth(float initialYears) {
     rebuildMetaballField();
     rebuildPlantSurface();
     emit plantSurfaceUpdated(plantSurface_);
+    captureGrowthFrameIfNeeded();
 }
 void SimulationEngine::setGrowthSpeed(float speed) { growthClock_.setSpeed(speed); }
 void SimulationEngine::stepGrowth(float deltaYears) { growthClock_.stepOnce(deltaYears); }
+
+void SimulationEngine::seekGrowth(float age) {
+    const GrowthDataFrame* frame = growthData_.nearest(std::max(0.0f, age));
+    if (!frame) {
+        growthClock_.reset(std::max(0.0f, age));
+        return;
+    }
+    growthClock_.pause();
+    PlantModel restored;
+    QString error;
+    if (!PlantModel::fromJson(frame->plantState, &restored, &error)) {
+        emit growthLogMessage(QStringLiteral("Replay restore failed: %1").arg(error));
+        return;
+    }
+    restoringRecordedFrame_ = true;
+    plantModel_ = std::move(restored);
+    dynamicBranching_.reset();
+    growthClock_.reset(frame->age);
+    environment_.time = frame->age;
+    rebuildMetaballField();
+    // Timeline scrubbing must stay responsive; use a coarser preview surface.
+    // The next live tick rebuilds the normal-resolution surface (0.18m grid).
+    rebuildPlantSurface(0.24f);
+    restoringRecordedFrame_ = false;
+    emit plantSurfaceUpdated(plantSurface_);
+    emit growthUpdated(buildReport(growthClock_.timeline().sample(frame->age)));
+    emit growthLogMessage(QStringLiteral("Replay seek -> %1y").arg(frame->age, 0, 'f', 2));
+}
+
+void SimulationEngine::jumpToGrowthStage(const QString& stage) {
+    const QString normalized = stage.trimmed().toLower();
+    const GrowthAxisThresholds thresholds = growthClock_.timeline().thresholds();
+    float targetAge = 0.0f;
+    if (normalized == QStringLiteral("seed") || normalized == QStringLiteral("seedling")) {
+        targetAge = 0.0f;
+    } else if (normalized == QStringLiteral("sprout") || normalized == QStringLiteral("vegetative")) {
+        targetAge = thresholds.seedlingEndYear;
+    } else if (normalized == QStringLiteral("growing")) {
+        targetAge = thresholds.vegetativeEndYear;
+    } else if (normalized == QStringLiteral("mature")) {
+        // A representative point inside the mature stage rather than its start.
+        targetAge = thresholds.vegetativeEndYear +
+                    (thresholds.matureEndYear - thresholds.vegetativeEndYear) / 3.0f;
+    } else if (normalized == QStringLiteral("aging") || normalized == QStringLiteral("completed")) {
+        targetAge = thresholds.matureEndYear;
+    } else {
+        return;
+    }
+    seekGrowth(targetAge);
+}
+
+void SimulationEngine::requestGrowthData() {
+    emit growthDataAvailable(growthData_.metricsToJson());
+}
 
 // ============================================================================
 // 内部槽
 // ============================================================================
 void SimulationEngine::onGrowthTickProduced(const GrowthSample& sample) {
+    // seekGrowth() has already restored an exact PlantModel snapshot. Do not
+    // apply the analytical growth scale again or the replayed geometry drifts.
+    if (restoringRecordedFrame_) {
+        environment_.time = sample.age;
+        emit growthUpdated(buildReport(sample));
+        return;
+    }
     const float previousAge = plantModel_.age;
     if (sample.age + 1.0e-4f < previousAge && !initialPlantSnapshot_.isEmpty()) {
         PlantModel restored;
@@ -156,6 +221,7 @@ void SimulationEngine::onGrowthTickProduced(const GrowthSample& sample) {
             dynamicBranching_.reset();
             growthEvents_.clear();
             keyframes_.clear();
+            growthData_.truncateAfter(0.0f);
             nextAutoKeyframeAge_ = 1.0f;
         } else {
             qWarning().noquote() << error;
@@ -181,6 +247,11 @@ void SimulationEngine::onGrowthTickProduced(const GrowthSample& sample) {
         captureGrowthKeyframe(QStringLiteral("auto_%1y").arg(nextAutoKeyframeAge_, 0, 'f', 2));
         nextAutoKeyframeAge_ += 1.0f;
     }
+    if (!growthData_.empty() && sample.age + 1.0e-4f < growthData_.frames().back().age) {
+        // Continuing from a replayed frame starts a new simulation branch.
+        growthData_.truncateAfter(previousAge + 1.0e-4f);
+    }
+    captureGrowthFrameIfNeeded();
     emit growthUpdated(buildReport(sample));
 }
 
@@ -194,6 +265,23 @@ bool SimulationEngine::saveGrowthKeyframes(const QString& filePath, QString* err
     return keyframes_.saveJson(filePath, error);
 }
 
+bool SimulationEngine::saveGrowthData(const QString& filePath, QString* error) const {
+    return growthData_.saveJson(filePath, error);
+}
+
+bool SimulationEngine::saveGrowthMetricsCsv(const QString& filePath, QString* error) const {
+    return growthData_.saveCsv(filePath, error);
+}
+
+void SimulationEngine::captureGrowthFrameIfNeeded() {
+    if (restoringRecordedFrame_) return;
+    if (!growthData_.empty()) {
+        const GrowthDataFrame* latest = growthData_.at(growthData_.size() - 1);
+        if (latest && std::abs(latest->age - plantModel_.age) < 1.0e-4f) return;
+    }
+    growthData_.capture(plantModel_);
+}
+
 void SimulationEngine::onGrowthClockLog(const QString& message) {
     qInfo().noquote() << QStringLiteral("[Growth] %1").arg(message);
     emit growthLogMessage(message);
@@ -203,8 +291,8 @@ void SimulationEngine::rebuildMetaballField() {
     metaballField_.rebuildFromPlant(plantModel_, metaballSettings_);
 }
 
-void SimulationEngine::rebuildPlantSurface() {
-    const ScalarFieldGrid grid = metaballField_.sampleGrid(0.06f);
+void SimulationEngine::rebuildPlantSurface(float requestedSpacing) {
+    const ScalarFieldGrid grid = metaballField_.sampleGrid(requestedSpacing, 100000);
     plantSurface_ = MarchingCubes::extract(grid, metaballField_.isoThreshold());
 }
 
@@ -241,5 +329,8 @@ GrowthStateReport SimulationEngine::buildReport(const GrowthSample& sample) cons
     report.nodeCount   = static_cast<int>(plantModel_.nodeCount());
     report.branchCount = static_cast<int>(plantModel_.branches().size());
     report.leafCount   = static_cast<int>(plantModel_.leaves().size());
+    report.metrics = GrowthDataRecorder::measure(plantModel_);
+    report.recordedFrameCount = static_cast<int>(growthData_.size());
+    report.recordedEndAge = growthData_.empty() ? 0.0f : growthData_.frames().back().age;
     return report;
 }

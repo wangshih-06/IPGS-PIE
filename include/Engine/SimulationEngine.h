@@ -13,6 +13,7 @@
 #include "Engine/EnvironmentParams.h"
 #include "Engine/GrowthClock.h"
 #include "Engine/GrowthStateReport.h"
+#include "Engine/GrowthDataRecorder.h"
 #include "Engine/DynamicBranchingSystem.h"
 #include "Engine/GrowthEventManager.h"
 #include "Engine/GrowthKeyframeStore.h"
@@ -44,6 +45,7 @@ public:
     const SurfaceMesh& plantSurface() const { return plantSurface_; }
     const GrowthEventManager& growthEvents() const { return growthEvents_; }
     const GrowthKeyframeStore& growthKeyframes() const { return keyframes_; }
+    const GrowthDataRecorder& growthData() const { return growthData_; }
 
 public slots:
     void setLightIntensity(float intensity);
@@ -58,8 +60,14 @@ public slots:
     void resetGrowth(float initialYears = 0.0f);
     void setGrowthSpeed(float speed);                 // 0.1 .. 8.0
     void stepGrowth(float deltaYears);
+    // Restores the nearest recorded full-state frame and leaves playback paused.
+    void seekGrowth(float age);
+    void jumpToGrowthStage(const QString& stage);
+    void requestGrowthData();
     void captureGrowthKeyframe(const QString& label = QString());
     bool saveGrowthKeyframes(const QString& filePath, QString* error = nullptr) const;
+    bool saveGrowthData(const QString& filePath, QString* error = nullptr) const;
+    bool saveGrowthMetricsCsv(const QString& filePath, QString* error = nullptr) const;
 
 signals:
     void environmentUpdated(float lightIntensity);
@@ -71,6 +79,7 @@ signals:
     void growthLogMessage(const QString& message);
     void growthEventAdded(const QString& type, float age, int nodeId, int leafId);
     void growthKeyframeCaptured(int keyframeId, float age);
+    void growthDataAvailable(const QJsonObject& data);
     void plantSurfaceUpdated(const SurfaceMesh& mesh);
 
 private slots:
@@ -79,8 +88,9 @@ private slots:
 
 private:
     void rebuildMetaballField();
-    void rebuildPlantSurface();
+    void rebuildPlantSurface(float requestedSpacing = 0.18f);
     GrowthStateReport buildReport(const GrowthSample& sample) const;
+    void captureGrowthFrameIfNeeded();
     GrowthResourceState resourceState() const;
     void collectAllNodePositions(const PlantNode* node, std::vector<Vec3>* positions) const;
 
@@ -95,6 +105,8 @@ private:
     DynamicBranchingSystem dynamicBranching_;
     GrowthEventManager growthEvents_;
     GrowthKeyframeStore keyframes_;
+    GrowthDataRecorder growthData_;
+    bool restoringRecordedFrame_ = false;
     QJsonObject initialPlantSnapshot_;
     float nextAutoKeyframeAge_ = 1.0f;
 };

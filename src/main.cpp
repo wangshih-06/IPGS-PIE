@@ -28,11 +28,31 @@ int main(int argc, char* argv[]) {
                      &simulationEngine, &SimulationEngine::setGravitropismWeight);
     QObject::connect(&webSocketServer, &WebSocketServer::lightPositionRequested,
                      &simulationEngine, &SimulationEngine::setLightSourcePosition);
+    QObject::connect(&webSocketServer, &WebSocketServer::growthStartRequested,
+                     &simulationEngine, &SimulationEngine::startGrowth);
+    QObject::connect(&webSocketServer, &WebSocketServer::growthPauseRequested,
+                     &simulationEngine, &SimulationEngine::pauseGrowth);
+    QObject::connect(&webSocketServer, &WebSocketServer::growthResumeRequested,
+                     &simulationEngine, &SimulationEngine::resumeGrowth);
+    QObject::connect(&webSocketServer, &WebSocketServer::growthResetRequested,
+                     [&simulationEngine]() { simulationEngine.resetGrowth(0.0f); });
+    QObject::connect(&webSocketServer, &WebSocketServer::growthSeekRequested,
+                     &simulationEngine, &SimulationEngine::seekGrowth);
+    QObject::connect(&webSocketServer, &WebSocketServer::growthStageRequested,
+                     &simulationEngine, &SimulationEngine::jumpToGrowthStage);
+    QObject::connect(&webSocketServer, &WebSocketServer::growthSpeedRequested,
+                     &simulationEngine, &SimulationEngine::setGrowthSpeed);
+    QObject::connect(&webSocketServer, &WebSocketServer::growthDataRequested,
+                     &simulationEngine, &SimulationEngine::requestGrowthData);
 
     QObject::connect(&simulationEngine, &SimulationEngine::environmentUpdated,
                      &webSocketServer, &WebSocketServer::broadcastState);
     QObject::connect(&simulationEngine, &SimulationEngine::tropismUpdated,
                      &webSocketServer, &WebSocketServer::broadcastTropismState);
+    QObject::connect(&simulationEngine, &SimulationEngine::growthUpdated,
+                     &webSocketServer, &WebSocketServer::broadcastGrowthState);
+    QObject::connect(&simulationEngine, &SimulationEngine::growthDataAvailable,
+                     &webSocketServer, &WebSocketServer::broadcastGrowthData);
 
     QObject::connect(&webSocketServer, &WebSocketServer::logMessage,
                      [&window](const QString& message) {

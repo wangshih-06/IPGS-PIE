@@ -5,6 +5,7 @@
 
 #include "Common/MathTypes.h"
 #include "Engine/GrowthTimeline.h"
+#include "Engine/GrowthDataRecorder.h"
 #include "Plant/PlantTypes.h"
 
 struct GrowthStateReport {
@@ -19,4 +20,7 @@ struct GrowthStateReport {
     int              nodeCount   = 0;
     int              branchCount = 0;
     int              leafCount   = 0;
+    PlantGrowthMetrics metrics;
+    int              recordedFrameCount = 0;
+    float            recordedEndAge = 0.0f;
 };

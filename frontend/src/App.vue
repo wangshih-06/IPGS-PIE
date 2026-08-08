@@ -2,251 +2,59 @@
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import PlantViewport from './components/PlantViewport.vue'
 
-type ConnectionState = 'connecting' | 'connected' | 'offline'
-type InteractionMode = 'select' | 'orbit' | 'wind'
-type LogItem = { time: string; message: string; tone?: 'success' | 'warn' | 'muted' }
-
-const socket = ref<WebSocket | null>(null)
-const connectionState = ref<ConnectionState>('connecting')
-const lightIntensity = ref(0.8)
-const moisture = ref(0.72)
-const windIntensity = ref(0.28)
-const playing = ref(true)
-const activeTool = ref<InteractionMode>('orbit')
-const viewportResetToken = ref(0)
-const selectedPlant = ref('樱花树 / Spring Cherry')
-const engineMessage = ref('等待 C++ 引擎握手')
-const logs = ref<LogItem[]>([])
-let reconnectTimer: ReturnType<typeof setTimeout> | undefined
+type Connection = 'connecting' | 'connected' | 'offline'
+type Tool = 'select' | 'orbit' | 'wind'
+type Metric = 'height' | 'totalBranchLength' | 'branchCount' | 'leafCount' | 'canopyWidth'
+type Point = { step: number; age: number; lifeStage: string; height: number; totalBranchLength: number; branchCount: number; leafCount: number; canopyWidth: number }
+type State = Point & { speed: number; mode: number; nodeCount: number; recordedFrameCount: number; recordedEndAge: number }
+type Log = { time: string; text: string; tone: 'ok' | 'warn' | 'muted' }
 
 const engineUrl = import.meta.env.VITE_ENGINE_WS_URL || 'ws://127.0.0.1:4317'
-const connectionLabel = computed(() => {
-  if (connectionState.value === 'connected') return '引擎已连接'
-  if (connectionState.value === 'connecting') return '正在连接引擎'
-  return '离线预览'
-})
-const lightPercent = computed(() => Math.round(lightIntensity.value * 100))
-const nodeCount = computed(() => Math.round(128 + lightIntensity.value * 26 + windIntensity.value * 14))
-const triangleCount = computed(() => Math.round(2480 + lightIntensity.value * 160))
-const selectedPlantType = computed<'cherry' | 'willow' | 'pine' | 'passion'>(() => {
-  if (selectedPlant.value.includes('柳')) return 'willow'
-  if (selectedPlant.value.includes('松')) return 'pine'
-  if (selectedPlant.value.includes('百香')) return 'passion'
-  return 'cherry'
-})
+const socket = ref<WebSocket | null>(null)
+const connection = ref<Connection>('connecting')
+const light = ref(.8), wind = ref(.28), tool = ref<Tool>('orbit'), resetToken = ref(0), playing = ref(false), speed = ref(1), age = ref(0), metric = ref<Metric>('height')
+const logs = ref<Log[]>([])
+const history = ref<Point[]>(offlineFrames())
+const state = ref<State>({ ...history.value[0], speed: 1, mode: 0, nodeCount: 1, recordedFrameCount: history.value.length, recordedEndAge: 30 })
+const names: Record<Metric, string> = { height: '植物高度', totalBranchLength: '枝干总长度', branchCount: '分枝数量', leafCount: '叶片数量', canopyWidth: '冠幅' }
+const stages = [{ key: 'seed', label: '种子', age: 0 }, { key: 'sprout', label: '萌发', age: .5 }, { key: 'growing', label: '营养生长', age: 3 }, { key: 'mature', label: '成熟', age: 12 }, { key: 'aging', label: '老化', age: 30 }]
+const label = computed(() => ({ connecting: '正在连接引擎', connected: '引擎已连接', offline: '离线回放预览' }[connection.value]))
+const maxAge = computed(() => Math.max(30, state.value.recordedEndAge, history.value.at(-1)?.age ?? 0))
+const progress = computed(() => Math.min(100, age.value / maxAge.value * 100))
+const current = computed(() => ({ height: state.value.height, totalBranchLength: state.value.totalBranchLength, branchCount: state.value.branchCount, leafCount: state.value.leafCount, canopyWidth: state.value.canopyWidth }))
+const path = computed(() => makePath(sample(history.value, 160), metric.value))
+const area = computed(() => `${path.value} L 1000 240 L 0 240 Z`)
+const chartMax = computed(() => Math.max(1, ...history.value.map(x => x[metric.value])))
 
-function timeStamp() {
-  return new Intl.DateTimeFormat('zh-CN', { hour: '2-digit', minute: '2-digit', second: '2-digit' }).format(new Date())
-}
-
-function addLog(message: string, tone: LogItem['tone'] = 'muted') {
-  logs.value.unshift({ time: timeStamp(), message, tone })
-  logs.value = logs.value.slice(0, 4)
-}
-
-function connectEngine() {
-  if (socket.value) socket.value.close()
-  connectionState.value = 'connecting'
-  engineMessage.value = '正在连接 C++ 引擎'
-  const client = new WebSocket(engineUrl)
-  socket.value = client
-  client.onopen = () => {
-    connectionState.value = 'connected'
-    engineMessage.value = '连接成功'
-    addLog('C++ 引擎握手成功', 'success')
-  }
-  client.onmessage = (event) => {
-    try {
-      const payload = JSON.parse(event.data) as { type?: string; message?: string; lightIntensity?: number }
-      if (payload.type === 'environment_updated') {
-        if (typeof payload.lightIntensity === 'number') lightIntensity.value = payload.lightIntensity
-        engineMessage.value = payload.message || 'Environment Updated'
-        addLog(`Light = ${lightIntensity.value.toFixed(1)}  /  Environment Updated`, 'success')
-      }
-    } catch {
-      addLog('收到无法解析的引擎消息', 'warn')
-    }
-  }
-  client.onerror = () => {
-    connectionState.value = 'offline'
-    engineMessage.value = '未检测到 C++ 引擎'
-    addLog('WebSocket 暂不可用，已切换离线预览', 'warn')
-  }
-  client.onclose = () => {
-    if (connectionState.value === 'connected') {
-      connectionState.value = 'offline'
-      engineMessage.value = '引擎连接已断开'
-    }
-  }
-}
-
-function send(command: Record<string, unknown>) {
-  if (socket.value?.readyState === WebSocket.OPEN) {
-    socket.value.send(JSON.stringify(command))
-    return true
-  }
-  return false
-}
-
-function increaseLight() {
-  const next = Math.min(1, Number((lightIntensity.value + 0.1).toFixed(2)))
-  lightIntensity.value = next
-  if (send({ type: 'adjust_light', value: next })) {
-    addLog(`发送 Light = ${next.toFixed(1)}`, 'success')
-    engineMessage.value = '等待环境更新回执'
-  } else {
-    addLog(`本地预览 Light = ${next.toFixed(1)}`, 'warn')
-  }
-}
-
-function changeLight(event: Event) {
-  const next = Number((event.target as HTMLInputElement).value)
-  lightIntensity.value = next
-  send({ type: 'adjust_light', value: next })
-}
-
-function toggleSimulation() {
-  playing.value = !playing.value
-  addLog(playing.value ? '模拟循环已恢复' : '模拟循环已暂停', 'muted')
-}
-
-function resetViewport() {
-  viewportResetToken.value += 1
-  addLog('视角已复位', 'muted')
-}
-
-function selectPlant(name: string) {
-  selectedPlant.value = name
-  addLog(`已载入预设：${name}`, 'muted')
-}
-
-onMounted(() => {
-  connectEngine()
-  addLog('控制台已就绪，等待引擎服务', 'muted')
-})
-
-onBeforeUnmount(() => {
-  if (reconnectTimer) clearTimeout(reconnectTimer)
-  socket.value?.close()
-})
+function offlineFrames(): Point[] { return Array.from({ length: 61 }, (_, step) => { const age = step / 2, g = 1 / (1 + Math.exp(-(age - 4.5) * .56)); return { step, age, lifeStage: age < .5 ? 'Seedling' : age < 3 ? 'Vegetative' : age < 20 ? 'Mature' : 'Senescent', height: +(.15 + 8.6 * g).toFixed(3), totalBranchLength: +(.2 + 112 * g ** 1.18).toFixed(3), branchCount: Math.round(2 + 174 * g ** 1.45), leafCount: Math.round(8 + 2630 * g ** 1.7), canopyWidth: +(.4 + 7.2 * g).toFixed(3) } }) }
+function log(text: string, tone: Log['tone'] = 'muted') { logs.value.unshift({ time: new Intl.DateTimeFormat('zh-CN', { hour: '2-digit', minute: '2-digit', second: '2-digit' }).format(new Date()), text, tone }); logs.value = logs.value.slice(0, 6) }
+function send(command: Record<string, unknown>) { if (socket.value?.readyState !== WebSocket.OPEN) return false; socket.value.send(JSON.stringify(command)); return true }
+function asNumber(value: unknown, fallback = 0) { return typeof value === 'number' && Number.isFinite(value) ? value : fallback }
+function toPoint(value: Record<string, unknown>): Point | null { const m = value.metrics && typeof value.metrics === 'object' ? value.metrics as Record<string, unknown> : value; const a = asNumber(value.age, NaN); return Number.isFinite(a) ? { step: asNumber(value.step, history.value.length), age: a, lifeStage: String(value.lifeStage ?? 'Seedling'), height: asNumber(m.height), totalBranchLength: asNumber(m.totalBranchLength), branchCount: asNumber(m.branchCount), leafCount: asNumber(m.leafCount), canopyWidth: asNumber(m.canopyWidth) } : null }
+function nearest(target: number) { return history.value.reduce<Point | null>((best, x) => !best || Math.abs(x.age - target) < Math.abs(best.age - target) ? x : best, null) }
+function localSeek(target: number) { const x = nearest(target); if (!x) return; age.value = x.age; state.value = { ...state.value, ...x, recordedFrameCount: history.value.length, recordedEndAge: history.value.at(-1)?.age ?? x.age } }
+function append(x: Point) { const prev = history.value.at(-1); if (!prev || Math.abs(prev.age - x.age) > .0001) { if (prev && x.age < prev.age) history.value = history.value.filter(y => y.age <= x.age + .0001); history.value.push(x) } else history.value[history.value.length - 1] = x }
+function receive(payload: Record<string, unknown>) { if (payload.type === 'environment_updated') { light.value = asNumber(payload.lightIntensity, light.value); return } if (payload.type === 'growth_data' && Array.isArray(payload.frames)) { const frames = payload.frames.map(x => toPoint(x as Record<string, unknown>)).filter((x): x is Point => !!x); if (frames.length) { history.value = frames; localSeek(age.value); log(`已载入 ${frames.length} 个生长记录帧。`, 'ok') }; return } if (payload.type === 'growth_state') { const x = toPoint(payload); if (!x) return; state.value = { ...x, speed: asNumber(payload.speed, 1), mode: asNumber(payload.mode), nodeCount: asNumber(payload.nodeCount), recordedFrameCount: asNumber(payload.recordedFrameCount, history.value.length), recordedEndAge: asNumber(payload.recordedEndAge, x.age) }; age.value = x.age; speed.value = state.value.speed; playing.value = state.value.mode === 1; append(x) } }
+function connect() { socket.value?.close(); connection.value = 'connecting'; const ws = new WebSocket(engineUrl); socket.value = ws; ws.onopen = () => { connection.value = 'connected'; send({ type: 'request_growth_data' }); log('已连接 C++ 生长引擎。', 'ok') }; ws.onmessage = e => { try { receive(JSON.parse(e.data)) } catch { log('收到无法解析的引擎消息。', 'warn') } }; ws.onerror = () => { connection.value = 'offline'; log('未检测到引擎，已切换到离线预览。', 'warn') }; ws.onclose = () => { if (connection.value === 'connected') { connection.value = 'offline'; playing.value = false } } }
+function seek(e: Event) { const target = +(e.target as HTMLInputElement).value; age.value = target; localSeek(target); if (send({ type: 'growth_seek', age: target })) log(`回放定位到 ${target.toFixed(2)} 年。`) }
+function stage(x: typeof stages[number]) { age.value = x.age; localSeek(x.age); if (send({ type: 'growth_stage', stage: x.key })) log(`跳转到关键阶段：${x.label}。`, 'ok'); else log(`离线跳转到关键阶段：${x.label}。`) }
+function toggle() { playing.value = !playing.value; if (playing.value) { if (send({ type: 'growth_resume' })) log('开始生长过程回放。', 'ok') } else if (send({ type: 'growth_pause' })) log('已暂停生长过程回放。') }
+function reset() { age.value = 0; localSeek(0); if (send({ type: 'growth_reset' })) log('已重置生长记录。', 'ok') }
+function setSpeed(e: Event) { speed.value = +(e.target as HTMLInputElement).value; send({ type: 'growth_speed', speed: speed.value }) }
+function setLight(e: Event) { light.value = +(e.target as HTMLInputElement).value; send({ type: 'adjust_light', value: light.value }) }
+function exportData(csv: boolean) { let text: string, type: string, name: string; if (csv) { const rows = ['step,age_years,life_stage,height,total_branch_length,branch_count,leaf_count,canopy_width', ...history.value.map(x => [x.step, x.age.toFixed(6), x.lifeStage, x.height.toFixed(6), x.totalBranchLength.toFixed(6), x.branchCount, x.leafCount, x.canopyWidth.toFixed(6)].join(','))]; text = `\uFEFF${rows.join('\n')}`; type = 'text/csv;charset=utf-8'; name = 'plant-growth-metrics.csv' } else { text = JSON.stringify({ schema: 'plantsim.growth_metrics.frontend', exportedAt: new Date().toISOString(), frameCount: history.value.length, frames: history.value }, null, 2); type = 'application/json'; name = 'plant-growth-metrics.json' }; const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([text], { type })); a.download = name; a.click(); URL.revokeObjectURL(a.href); log(`已导出生长指标 ${csv ? 'CSV' : 'JSON'}。`, 'ok') }
+function sample<T>(items: T[], max: number) { if (items.length <= max) return items; const step = (items.length - 1) / (max - 1); return Array.from({ length: max }, (_, i) => items[Math.round(i * step)]) }
+function makePath(items: Point[], key: Metric) { const end = Math.max(.001, maxAge.value), top = Math.max(1, ...items.map(x => x[key])); return items.map((x, i) => `${i ? 'L' : 'M'} ${(x.age / end * 1000).toFixed(2)} ${(228 - x[key] / top * 198).toFixed(2)}`).join(' ') }
+onMounted(() => { localSeek(0); connect() }); onBeforeUnmount(() => socket.value?.close())
 </script>
 
 <template>
-  <div class="app-frame">
-    <aside class="sidebar">
-      <div class="brand-lockup">
-        <div class="brand-mark"><span></span><span></span><span></span></div>
-        <div>
-          <div class="brand-name">PLANTSIM</div>
-          <div class="brand-subtitle">GROWTH LAB / 01</div>
-        </div>
-      </div>
-
-      <nav class="primary-nav" aria-label="主导航">
-        <button class="nav-item nav-item--active"><span class="nav-glyph nav-glyph--grid"></span>实验台</button>
-        <button class="nav-item"><span class="nav-glyph nav-glyph--branch"></span>植物库</button>
-        <button class="nav-item"><span class="nav-glyph nav-glyph--layers"></span>场景层级</button>
-        <button class="nav-item"><span class="nav-glyph nav-glyph--sliders"></span>参数配置</button>
-      </nav>
-
-      <div class="sidebar-section">
-        <div class="section-kicker">SCENE PRESETS <span>04</span></div>
-        <button class="preset-item" :class="{ 'preset-item--active': selectedPlant.includes('樱花') }" @click="selectPlant('樱花树 / Spring Cherry')">
-          <span class="preset-swatch preset-swatch--cherry"></span><span><strong>Spring Cherry</strong><small>花期 · 成熟期</small></span><span class="preset-check">✓</span>
-        </button>
-        <button class="preset-item" :class="{ 'preset-item--active': selectedPlant.includes('柳') }" @click="selectPlant('垂柳 / Weeping Willow')">
-          <span class="preset-swatch preset-swatch--willow"></span><span><strong>Weeping Willow</strong><small>高分枝 · 柔性</small></span>
-        </button>
-        <button class="preset-item" :class="{ 'preset-item--active': selectedPlant.includes('松') }" @click="selectPlant('黑松 / Black Pine')">
-          <span class="preset-swatch preset-swatch--pine"></span><span><strong>Black Pine</strong><small>向光性 · 稳定</small></span>
-        </button>
-        <button class="preset-item" :class="{ 'preset-item--active': selectedPlant.includes('百香') }" @click="selectPlant('百香果树 / Passion Fruit Vine')">
-          <span class="preset-swatch preset-swatch--passion"></span><span><strong>Passion Fruit Vine</strong><small>攀援 · 花果期</small></span>
-        </button>
-      </div>
-
-      <div class="sidebar-footer">
-        <div class="engine-health"><span class="status-pulse" :class="`status-pulse--${connectionState}`"></span><span>{{ connectionLabel }}</span></div>
-        <div class="build-stamp">BUILD 0.1.0 · LOCAL</div>
-      </div>
-    </aside>
-
-    <main class="workspace">
-      <header class="topbar">
-        <div>
-          <div class="eyebrow">PHYSICAL GROWTH SIMULATION / CONTROL ROOM</div>
-          <h1>实验台 <span>/ {{ selectedPlant }}</span></h1>
-        </div>
-        <div class="topbar-actions">
-          <div class="connection-badge" :class="`connection-badge--${connectionState}`"><span class="badge-dot"></span>{{ connectionLabel }}</div>
-          <button class="icon-button" title="重新连接 C++ 引擎" aria-label="重新连接 C++ 引擎" @click="connectEngine"><span class="refresh-icon">↻</span></button>
-          <button class="avatar-button" title="本地工作区">NL</button>
-        </div>
-      </header>
-
-      <section class="metric-row" aria-label="运行指标">
-        <article class="metric-item">
-          <div class="metric-label">LIFE CYCLE</div><div class="metric-value">成熟期 <span class="metric-index">04 / 05</span></div><div class="metric-bar"><span style="width: 78%"></span></div>
-        </article>
-        <article class="metric-item">
-          <div class="metric-label">ACTIVE NODES</div><div class="metric-value">{{ nodeCount }} <span class="metric-index">nodes</span></div><div class="metric-note metric-note--up">+12.4% <span>↗</span></div>
-        </article>
-        <article class="metric-item">
-          <div class="metric-label">RENDER TIME</div><div class="metric-value">16.7 <span class="metric-index">ms / frame</span></div><div class="metric-note">60 FPS locked</div>
-        </article>
-        <article class="metric-item metric-item--signal">
-          <div class="metric-label">ENGINE SIGNAL</div><div class="metric-value">{{ engineMessage }}</div><div class="signal-line"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></div>
-        </article>
-      </section>
-
-      <section class="studio-grid">
-        <div class="viewport-panel">
-          <div class="panel-heading"><div><span class="panel-index">01</span><span class="panel-title">三维视口</span></div><span class="panel-meta">OPENGL 4.3 / CORE PROFILE</span></div>
-          <PlantViewport :light-intensity="lightIntensity" :wind-intensity="windIntensity" :playing="playing" :plant-type="selectedPlantType" :interaction-mode="activeTool" :reset-token="viewportResetToken" />
-          <div class="viewport-toolbar">
-            <div class="tool-group">
-              <button class="tool-button" :class="{ 'tool-button--active': activeTool === 'select' }" title="选择节点" aria-label="选择节点" @click="activeTool = 'select'"><span class="tool-icon tool-icon--select"></span></button>
-              <button class="tool-button" :class="{ 'tool-button--active': activeTool === 'orbit' }" title="轨道视角" aria-label="轨道视角" @click="activeTool = 'orbit'"><span class="tool-icon tool-icon--orbit"></span></button>
-              <button class="tool-button" :class="{ 'tool-button--active': activeTool === 'wind' }" title="风场预览" aria-label="风场预览" @click="activeTool = 'wind'"><span class="tool-icon tool-icon--wind"></span></button>
-            </div>
-            <div class="viewport-actions"><span class="selection-readout">{{ activeTool.toUpperCase() }} MODE</span><button class="reset-button" title="复位视角" aria-label="复位视角" @click="resetViewport">↺</button></div>
-          </div>
-        </div>
-
-        <aside class="inspector-panel">
-          <div class="panel-heading"><div><span class="panel-index">02</span><span class="panel-title">环境参数</span></div><span class="live-label"><span class="live-dot"></span>LIVE</span></div>
-          <div class="inspector-body">
-            <div class="control-block control-block--highlight">
-              <div class="control-title-row"><div><span class="control-label">光照强度</span><span class="control-caption">PHOTOTROPISM INPUT</span></div><strong>{{ lightPercent }}<small>%</small></strong></div>
-              <input class="range-input range-input--amber" type="range" min="0" max="1" step="0.01" :value="lightIntensity" @input="changeLight" />
-              <div class="range-labels"><span>LOW</span><span>DIRECT SUN</span></div>
-              <button class="primary-action" @click="increaseLight"><span class="plus-symbol">+</span> 光照 +10% <span class="action-arrow">→</span></button>
-            </div>
-            <div class="control-block">
-              <div class="control-title-row"><div><span class="control-label">风场强度</span><span class="control-caption">PERLIN FIELD / DYNAMIC</span></div><strong>{{ Math.round(windIntensity * 100) }}<small>%</small></strong></div>
-              <input v-model.number="windIntensity" class="range-input range-input--mint" type="range" min="0" max="1" step="0.01" />
-            </div>
-            <div class="control-block">
-              <div class="control-title-row"><div><span class="control-label">水分储备</span><span class="control-caption">ROOT UPTAKE</span></div><strong>{{ Math.round(moisture * 100) }}<small>%</small></strong></div>
-              <input v-model.number="moisture" class="range-input range-input--blue" type="range" min="0" max="1" step="0.01" />
-            </div>
-            <div class="environment-list"><div><span class="mini-led mini-led--mint"></span>向光性</div><span>ACTIVE</span><div><span class="mini-led mini-led--blue"></span>向地性</div><span>STABLE</span><div><span class="mini-led mini-led--amber"></span>风场</div><span>{{ playing ? 'RUNNING' : 'PAUSED' }}</span></div>
-          </div>
-        </aside>
-      </section>
-
-      <section class="bottom-grid">
-        <div class="growth-panel panel-lined">
-          <div class="panel-heading"><div><span class="panel-index">03</span><span class="panel-title">生长控制</span></div><span class="panel-meta">T + 18.4 DAYS</span></div>
-          <div class="growth-content"><div class="growth-timeline"><div class="timeline-track"><span class="timeline-progress"></span><i></i><i></i><i class="timeline-active"></i><i></i><i></i></div><div class="timeline-labels"><span>SEED</span><span>SPROUT</span><span>GROWING</span><span class="timeline-label--active">MATURE</span><span>AGING</span></div></div><div class="growth-actions"><button class="play-button" :class="{ 'play-button--active': playing }" title="播放或暂停模拟" aria-label="播放或暂停模拟" @click="toggleSimulation"><span :class="playing ? 'pause-icon' : 'play-icon'"></span></button><button class="secondary-action" @click="addLog('已重置到成熟期初始状态', 'muted')"><span>↺</span> 重置</button></div></div>
-        </div>
-        <div class="log-panel panel-lined">
-          <div class="panel-heading"><div><span class="panel-index">04</span><span class="panel-title">事件流</span></div><span class="panel-meta">LAST 4 EVENTS</span></div>
-          <div class="log-list"><div v-for="item in logs" :key="`${item.time}-${item.message}`" class="log-item"><span class="log-time">{{ item.time }}</span><span class="log-marker" :class="`log-marker--${item.tone || 'muted'}`"></span><span>{{ item.message }}</span></div><div v-if="!logs.length" class="empty-log">等待模拟事件</div></div>
-        </div>
-      </section>
-
-      <footer class="statusbar"><span><i class="statusbar-dot"></i> LOCAL SESSION</span><span>WEBSOCKET / {{ engineUrl }}</span><span>GEOMETRY {{ triangleCount.toLocaleString() }} TRIS</span><span class="statusbar-right">SIMULATION CORE READY <b>·</b> {{ new Date().toLocaleDateString('zh-CN') }}</span></footer>
-    </main>
+  <div class="week12-shell">
+    <header class="week12-header"><div><p class="eyebrow">WEEK 12 · GROWTH DATA LAB</p><h1>生长数据记录与回放</h1><p>逐时间步保存植物状态，回放生长过程并追踪结构指标变化。</p></div><div class="header-actions"><span class="chip" :class="connection"><i></i>{{ label }}</span><button class="ghost" @click="connect">重新连接</button></div></header>
+    <section class="metrics"><article class="stat accent"><span>生长年龄</span><strong>{{ state.age.toFixed(2) }}<small> 年</small></strong><em>{{ state.lifeStage }}</em></article><article class="stat"><span>植物高度</span><strong>{{ current.height.toFixed(2) }}<small> m</small></strong><em>HEIGHT</em></article><article class="stat"><span>枝干总长度</span><strong>{{ current.totalBranchLength.toFixed(1) }}<small> m</small></strong><em>BRANCH LENGTH</em></article><article class="stat"><span>分枝 / 叶片</span><strong>{{ current.branchCount }}<small> / {{ current.leafCount }}</small></strong><em>STRUCTURE</em></article><article class="stat"><span>冠幅</span><strong>{{ current.canopyWidth.toFixed(2) }}<small> m</small></strong><em>CANOPY WIDTH</em></article></section>
+    <main class="main-grid"><section class="card viewport-card"><header><span>01</span><h2>植物生长预览</h2><b>{{ playing ? 'REPLAYING' : 'PAUSED' }}</b></header><PlantViewport :light-intensity="light" :wind-intensity="wind" :playing="playing" plant-type="cherry" :interaction-mode="tool" :reset-token="resetToken"/><footer><div class="tools"><button :class="{ active: tool === 'select' }" @click="tool = 'select'">选择</button><button :class="{ active: tool === 'orbit' }" @click="tool = 'orbit'">旋转</button><button :class="{ active: tool === 'wind' }" @click="tool = 'wind'">风场</button></div><label>光照 <input type="range" min="0" max="1" step=".01" :value="light" @input="setLight"/></label><button class="ghost" @click="resetToken += 1">复位视角</button></footer></section><aside class="card summary"><header><span>02</span><h2>记录摘要</h2><b>{{ state.recordedFrameCount }} FRAMES</b></header><dl><div><dt>记录频率</dt><dd>每个时间步</dd></div><div><dt>已记录时长</dt><dd>{{ state.recordedEndAge.toFixed(2) }} 年</dd></div><div><dt>回放速度</dt><dd>{{ speed.toFixed(1) }}×</dd></div><div><dt>活跃节点</dt><dd>{{ state.nodeCount }}</dd></div></dl><label class="speed">回放速度 <b>{{ speed.toFixed(1) }}×</b><input type="range" min=".1" max="8" step=".1" :value="speed" @input="setSpeed"/></label><div class="exports"><button class="primary" @click="exportData(false)">导出 JSON</button><button class="ghost" @click="exportData(true)">导出 CSV</button></div><p class="hint">引擎端保存完整植物状态快照；此处可下载用于曲线分析的指标数据。</p></aside></main>
+    <section class="card timeline"><header><span>03</span><h2>生长过程回放</h2><b>T = {{ age.toFixed(2) }} / {{ maxAge.toFixed(0) }} 年</b></header><div class="timeline-row"><button class="play" @click="toggle"><i :class="playing ? 'pause' : 'triangle'"></i></button><div class="track"><input type="range" min="0" :max="maxAge" step=".01" :value="age" @input="seek"/><i :style="{ width: `${progress}%` }"></i></div><button class="ghost" @click="reset">重置记录</button></div><div class="stages"><button v-for="x in stages" :key="x.key" :class="{ active: Math.abs(age - x.age) < .35 }" @click="stage(x)"><i></i><span>{{ x.label }}</span><small>{{ x.age }} 年</small></button></div></section>
+    <section class="card chart"><header><span>04</span><h2>植物指标曲线</h2><nav><button v-for="(_, key) in names" :key="key" :class="{ active: metric === key }" @click="metric = key as Metric">{{ names[key as Metric] }}</button></nav></header><div class="chart-body"><div class="plot"><svg viewBox="0 0 1000 240" preserveAspectRatio="none"><defs><linearGradient id="fill" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#86db9b" stop-opacity=".38"/><stop offset="1" stop-color="#86db9b" stop-opacity="0"/></linearGradient></defs><path class="grid" d="M0 30H1000M0 80H1000M0 130H1000M0 180H1000M0 228H1000"/><path class="area" :d="area"/><path class="line" :d="path"/><line class="cursor" :x1="progress * 10" :x2="progress * 10" y1="18" y2="228"/></svg><div class="axis"><span>0 年</span><span>{{ (maxAge / 2).toFixed(1) }} 年</span><span>{{ maxAge.toFixed(0) }} 年</span></div></div><aside><span>当前指标</span><strong>{{ current[metric].toFixed(metric === 'branchCount' || metric === 'leafCount' ? 0 : 2) }}<small>{{ ['branchCount','leafCount'].includes(metric) ? ' 个' : ' m' }}</small></strong><p>{{ names[metric] }}曲线由 {{ history.length }} 个记录时间步生成。最大值 {{ chartMax.toFixed(1) }}。</p></aside></div></section>
+    <section class="card events"><header><span>05</span><h2>回放事件</h2></header><div v-if="logs.length" class="event-list"><div v-for="x in logs" :key="x.time + x.text"><time>{{ x.time }}</time><i :class="x.tone"></i><p>{{ x.text }}</p></div></div><p v-else class="empty">等待生长事件…</p></section>
   </div>
 </template>

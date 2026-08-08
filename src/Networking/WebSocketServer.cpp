@@ -13,6 +13,7 @@
 #include <QTcpSocket>
 
 #include <limits>
+#include <algorithm>
 
 namespace {
 constexpr char kWebSocketGuid[] = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11";
@@ -216,6 +217,38 @@ void WebSocketServer::processTextMessage(QTcpSocket* socket, const QByteArray& p
         }
         return;
     }
+    if (type == QStringLiteral("growth_start")) {
+        emit growthStartRequested();
+        return;
+    }
+    if (type == QStringLiteral("growth_pause")) {
+        emit growthPauseRequested();
+        return;
+    }
+    if (type == QStringLiteral("growth_resume")) {
+        emit growthResumeRequested();
+        return;
+    }
+    if (type == QStringLiteral("growth_reset")) {
+        emit growthResetRequested();
+        return;
+    }
+    if (type == QStringLiteral("growth_seek")) {
+        emit growthSeekRequested(std::max(0.0f, static_cast<float>(command.value("age").toDouble(0.0))));
+        return;
+    }
+    if (type == QStringLiteral("growth_stage")) {
+        emit growthStageRequested(command.value("stage").toString());
+        return;
+    }
+    if (type == QStringLiteral("growth_speed")) {
+        emit growthSpeedRequested(qBound(0.1f, static_cast<float>(command.value("speed").toDouble(1.0)), 8.0f));
+        return;
+    }
+    if (type == QStringLiteral("request_growth_data")) {
+        emit growthDataRequested();
+        return;
+    }
     if (type == QStringLiteral("ping")) {
         sendText(socket, QByteArray("{\"type\":\"pong\"}"));
     }
@@ -258,6 +291,38 @@ void WebSocketServer::broadcastTropismState(float photoWeight, float graviWeight
         if (it.value().handshaken) {
             sendText(it.key(), payload);
         }
+    }
+}
+
+void WebSocketServer::broadcastGrowthState(const GrowthStateReport& report) {
+    const PlantGrowthMetrics& metrics = report.metrics;
+    const QJsonObject state{
+        {"type", "growth_state"},
+        {"age", static_cast<double>(report.age)},
+        {"lifeStage", toString(report.lifeStage)},
+        {"mode", report.mode},
+        {"speed", static_cast<double>(report.speed)},
+        {"nodeCount", report.nodeCount},
+        {"branchCount", report.branchCount},
+        {"leafCount", report.leafCount},
+        {"height", static_cast<double>(metrics.height)},
+        {"totalBranchLength", static_cast<double>(metrics.totalBranchLength)},
+        {"canopyWidth", static_cast<double>(metrics.canopyWidth)},
+        {"recordedFrameCount", report.recordedFrameCount},
+        {"recordedEndAge", static_cast<double>(report.recordedEndAge)}
+    };
+    const QByteArray payload = QJsonDocument(state).toJson(QJsonDocument::Compact);
+    for (auto it = clients_.begin(); it != clients_.end(); ++it) {
+        if (it.value().handshaken) sendText(it.key(), payload);
+    }
+}
+
+void WebSocketServer::broadcastGrowthData(const QJsonObject& data) {
+    QJsonObject payloadObject = data;
+    payloadObject.insert("type", "growth_data");
+    const QByteArray payload = QJsonDocument(payloadObject).toJson(QJsonDocument::Compact);
+    for (auto it = clients_.begin(); it != clients_.end(); ++it) {
+        if (it.value().handshaken) sendText(it.key(), payload);
     }
 }
 
