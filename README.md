@@ -13,6 +13,7 @@ PlantSim 将程序化植物建模、环境约束和生长过程记录整合为�
 - **生长数据记录与回放**：每个有效时间步保存完整 `PlantModel` 快照及统计指标；支持拖动定位、继续播放、分支截断和关键阶段跳转。
 - **交互控制台**：Vue 3 前端提供生长时间轴、播放速度、阶段跳转、指标卡片、SVG 曲线、JSON / CSV 指标导出和离线回放回退。
 - **引擎互联**：Qt WebSocket 服务监听 `ws://127.0.0.1:4317`，在 C++ 引擎与浏览器控制台之间传输环境、播放控制和生长指标数据。
+- **PBD 植物物理（第 13 周）**：每个植物节点对应一个质量点，对枝干长度、弯曲和分枝夹角进行位置约束求解；提供固定根节点、风力驱动、误差统计与 OpenGL 调试可视化。
 
 ## 系统架构
 
@@ -32,6 +33,7 @@ PlantSim 将程序化植物建模、环境约束和生长过程记录整合为�
 │ GrowthClock → GrowthTimeline → DynamicBranchingSystem          │
 │ EnvironmentParams → Tropism / Resource feedback                │
 │ GrowthDataRecorder → 完整快照、回放与指标导出                 │
+│ PlantPhysicsSolver → 质量点、PBD 约束与调试数据                 │
 └───────┬───────────────────────────┬──────────────────────────┘
         │                           │
 ┌───────▼────────┐          ┌───────▼──────────────────────────┐
@@ -52,6 +54,7 @@ PlantSim 将程序化植物建模、环境约束和生长过程记录整合为�
 | 动态结构 | 分枝生成、叶片萌发、资源和层级约束 | `DynamicBranchingSystem` |
 | 环境向性 | 多光源、遮挡近似、向光性、向地性 | `EnvironmentParams` |
 | 数据记录与回放 | 完整帧快照、指标统计、最近帧定位、JSON/CSV 导出 | `GrowthDataRecorder` |
+| 植物物理 | 质量点、长度/弯曲/夹角 PBD 约束、固定根、误差统计 | `PlantPhysicsSolver` |
 | 渲染与网络 | Qt OpenGL 渲染、多光源、WebSocket 控制与广播 | `src/Rendering/`、`src/Networking/` |
 | Web 控制台 | 时间轴、曲线、离线回放、导出、三维交互预览 | `frontend/` |
 
@@ -271,6 +274,24 @@ npm run smoke
 4. 点击关键阶段按钮，确认跳转到种子、萌发、营养生长、成熟或老化阶段。
 5. 点击 JSON / CSV 导出，确认下载的指标序列包含 `step`、`age`、生命周期和五项指标。
 
+## PBD 植物物理
+
+主程序默认关闭物理求解，因此第 12 周的生长记录与回放保持确定性。在 Qt 窗口的 **VIEWPORT** 区域可按需打开：
+
+1. 选中 `Enable PBD physics` 以启用 60 Hz 物理步进。
+2. 选中 `Physics debug overlay` 查看约束结构和统计。
+3. 青色线为长度约束，橙色折线为弯曲弦长约束，紫色为分枝夹角约束；红色十字表示固定根节点，绿色十字表示可运动质量点。
+
+物理回归程序可单独构建与运行：
+
+```powershell
+$msbuild = 'C:\Program Files\Microsoft Visual Studio\2022\Community\MSBuild\Current\Bin\MSBuild.exe'
+& $msbuild build\PlantSimulationSystem.sln /t:PlantPhysicsDemo /p:Configuration=Debug /m:2 /v:minimal
+.\build\Debug\PlantPhysicsDemo.exe
+```
+
+测试程序覆盖质量点构建、固定根、三类约束、写回 `PlantModel` 及调试快照。详见[第 13 周：植物物理模型](docs/第13周-植物物理模型.md)。
+
 ## 开发进度
 
 | 周次 | 里程碑 | 主要交付 |
@@ -284,6 +305,7 @@ npm run smoke
 | 第 10 周 | 动态分枝生成 | 分枝/叶片事件、资源与关键帧 |
 | 第 11 周 | 向光性与向地性 | 多光源、遮挡近似、环境向性控制 |
 | 第 12 周 | 生长数据记录与回放 | 完整状态帧、时间轴回放、指标曲线、数据导出 |
+| 第 13 周 | 植物物理模型 | 质量点、长度/弯曲/夹角约束、调试模式 |
 
 ## 文档
 
@@ -294,3 +316,4 @@ npm run smoke
 - [第 10 周：动态分枝生成](docs/第10周-动态分枝生成.md)
 - [第 11 周：向光性与向地性](docs/第11周-向光性与向地性.md)
 - [第 12 周：生长数据记录与回放](docs/第12周-生长数据记录与回放.md)
+- [第 13 周：植物物理模型](docs/第13周-植物物理模型.md)
