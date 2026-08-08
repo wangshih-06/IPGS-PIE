@@ -1,5 +1,5 @@
 // ============================================================================
-// PlantPhysicsDemo - 第13周质量点与PBD长度约束回归检查
+// PlantPhysicsDemo - Week 13 PBD structural constraint regression check
 // ============================================================================
 #include <cmath>
 
@@ -10,53 +10,98 @@
 #include "Plant/PlantModel.h"
 
 namespace {
-float segmentLength(const PlantMassPoint& a, const PlantMassPoint& b) {
-    return (b.position - a.position).norm();
+float includedAngle(const Vec3& first, const Vec3& second) {
+    const float firstLength = first.norm();
+    const float secondLength = second.norm();
+    if (firstLength < 1.0e-6f || secondLength < 1.0e-6f) return 0.0f;
+    const float cosine = std::max(-1.0f, std::min(1.0f, first.dot(second) / (firstLength * secondLength)));
+    return std::acos(cosine);
+}
+
+bool hasValidLengths(const PlantPhysicsSolver& solver, float tolerance) {
+    const auto& points = solver.massPoints();
+    for (const PlantLengthConstraint& constraint : solver.lengthConstraints()) {
+        const float current = (points[constraint.childIndex].position -
+                               points[constraint.parentIndex].position).norm();
+        if (std::abs(current - constraint.restLength) > tolerance) return false;
+    }
+    return true;
 }
 }
 
 int main(int argc, char** argv) {
     QCoreApplication application(argc, argv);
 
+    // The test tree has a bent trunk and two branches, providing all Week 13
+    // constraint families: length, bending and sibling branch-angle.
     PlantModel plant;
     PlantNode* root = plant.createRootNode(Vec3::Zero(), Vec3::UnitY(), 0.18f);
-    if (!root) return 1;
-    PlantNode* trunk = plant.addNode(root->id, Vec3(0.0f, 0.8f, 0.0f), Vec3::UnitY(), 0.12f, 0.8f);
-    PlantNode* tip = trunk ? plant.addNode(trunk->id, Vec3(0.0f, 1.5f, 0.0f), Vec3::UnitY(), 0.07f, 0.7f) : nullptr;
-    if (!trunk || !tip) return 2;
+    PlantNode* trunk = root ? plant.addNode(root->id, Vec3(0.10f, 0.75f, 0.0f),
+                                            Vec3(0.13f, 0.99f, 0.0f), 0.12f, 0.76f)
+                            : nullptr;
+    PlantNode* junction = trunk ? plant.addNode(trunk->id, Vec3(0.25f, 1.40f, 0.0f),
+                                                 Vec3(0.22f, 0.98f, 0.0f), 0.09f, 0.67f)
+                                : nullptr;
+    PlantNode* left = junction ? plant.addNode(junction->id, Vec3(-0.48f, 1.95f, 0.20f),
+                                                Vec3(-0.78f, 0.59f, 0.21f), 0.06f, 0.94f)
+                               : nullptr;
+    PlantNode* right = junction ? plant.addNode(junction->id, Vec3(0.80f, 1.84f, -0.23f),
+                                                 Vec3(0.82f, 0.52f, -0.24f), 0.06f, 0.86f)
+                                : nullptr;
+    if (!root || !trunk || !junction || !left || !right) return 1;
 
     PlantPhysicsSettings settings;
     settings.gravity = Vec3::Zero();
-    settings.solverIterations = 36;
+    settings.solverIterations = 768;
     settings.defaultLengthStiffness = 1.0f;
+    settings.defaultBendingStiffness = 1.0f;
+    settings.defaultBranchAngleStiffness = 1.0f;
     PlantPhysicsSolver solver(settings);
     QString error;
     if (!solver.rebuildFromPlant(plant, &error)) {
         qCritical().noquote() << error;
+        return 2;
+    }
+
+    const PlantPhysicsStatistics initial = solver.statistics();
+    if (solver.massPoints().size() != plant.nodeCount() ||
+        initial.lengthConstraintCount != static_cast<int>(plant.nodeCount()) - 1 ||
+        initial.bendingConstraintCount != 3 || initial.branchAngleConstraintCount != 1 ||
+        !solver.massPoints().front().fixed || solver.massPoints().front().inverseMass != 0.0f) {
+        qCritical().noquote() << "FAILED: invalid physics topology or fixed root invariant.";
         return 3;
     }
 
-    if (solver.massPoints().size() != plant.nodeCount() ||
-        solver.lengthConstraints().size() != plant.nodeCount() - 1 ||
-        !solver.massPoints().front().fixed || solver.massPoints().front().inverseMass != 0.0f) {
-        qCritical().noquote() << "FAILED: node-to-particle conversion or fixed root invariant.";
+    const Vec3 rootAnchor = solver.massPoints().front().position;
+    if (!solver.setParticlePosition(left->id, Vec3(0.18f, 2.35f, 0.72f)) ||
+        !solver.setParticlePosition(right->id, Vec3(1.37f, 1.16f, -0.62f))) {
+        qCritical().noquote() << "FAILED: cannot perturb physics particles.";
         return 4;
     }
-
-    const Vec3 rootAnchor = solver.massPoints().front().position;
-    if (!solver.setParticlePosition(tip->id, Vec3(0.72f, 1.92f, -0.31f))) return 5;
     solver.step(0.0f);
 
-    const auto& points = solver.massPoints();
-    for (const PlantLengthConstraint& constraint : solver.lengthConstraints()) {
-        const float errorLength = std::abs(segmentLength(points[constraint.parentIndex], points[constraint.childIndex]) - constraint.restLength);
-        if (errorLength > 2.0e-3f) {
-            qCritical().noquote() << "FAILED: length constraint residual" << errorLength;
-            return 6;
-        }
+    const PlantPhysicsStatistics result = solver.statistics();
+    if (!hasValidLengths(solver, 2.0e-3f) || result.maxBendingError > 2.5e-3f ||
+        result.maxBranchAngleErrorRadians > 4.0e-3f) {
+        qCritical().noquote() << QStringLiteral(
+            "FAILED: structural constraints did not converge: length=%1 bend=%2 angle=%3")
+            .arg(result.maxLengthError, 0, 'g', 4)
+            .arg(result.maxBendingError, 0, 'g', 4)
+            .arg(result.maxBranchAngleErrorRadians, 0, 'g', 4);
+        return 5;
     }
     if ((solver.massPoints().front().position - rootAnchor).norm() > 1.0e-7f) {
         qCritical().noquote() << "FAILED: fixed root moved.";
+        return 6;
+    }
+
+    const auto& angle = solver.branchAngleConstraints().front();
+    const auto& points = solver.massPoints();
+    const float solvedAngle = includedAngle(
+        points[angle.firstChildIndex].position - points[angle.parentIndex].position,
+        points[angle.secondChildIndex].position - points[angle.parentIndex].position);
+    if (std::abs(solvedAngle - angle.restAngleRadians) > 4.0e-3f) {
+        qCritical().noquote() << "FAILED: branch angle did not recover its rest state.";
         return 7;
     }
 
@@ -66,14 +111,22 @@ int main(int argc, char** argv) {
     }
 
     const PlantPhysicsDebugSnapshot debug = solver.debugSnapshot();
-    if (debug.points.size() != plant.nodeCount() || debug.lengthSegments.size() != plant.nodeCount() - 1) {
+    if (debug.points.size() != plant.nodeCount() ||
+        debug.lengthSegments.size() != plant.nodeCount() - 1 ||
+        debug.bendingConstraints.size() != static_cast<std::size_t>(initial.bendingConstraintCount) ||
+        debug.branchAngleConstraints.size() != static_cast<std::size_t>(initial.branchAngleConstraintCount)) {
         qCritical().noquote() << "FAILED: debug snapshot is incomplete.";
         return 9;
     }
 
-    qInfo().noquote() << QStringLiteral("Plant physics length check passed: particles=%1 constraints=%2 maxError=%3")
-                             .arg(debug.statistics.particleCount)
-                             .arg(debug.statistics.lengthConstraintCount)
-                             .arg(debug.statistics.maxLengthError, 0, 'g', 4);
+    qInfo().noquote() << QStringLiteral(
+        "Plant physics constraints passed: particles=%1 length=%2 bend=%3 angle=%4 maxErrors=(%5, %6, %7)")
+        .arg(result.particleCount)
+        .arg(result.lengthConstraintCount)
+        .arg(result.bendingConstraintCount)
+        .arg(result.branchAngleConstraintCount)
+        .arg(result.maxLengthError, 0, 'g', 4)
+        .arg(result.maxBendingError, 0, 'g', 4)
+        .arg(result.maxBranchAngleErrorRadians, 0, 'g', 4);
     return 0;
 }
