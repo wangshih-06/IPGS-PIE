@@ -1,23 +1,29 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import PlantViewport from './components/PlantViewport.vue'
+import {
+  appendFrame,
+  asNumber,
+  findNearest,
+  makePath,
+  normalizeFrames,
+  offlineFrames,
+  parseStages,
+  sample,
+  stageListFromFrames,
+  stageTitle,
+  toPoint,
+  type Metric,
+  type PlantSnapshot,
+  type Point,
+  type Stage,
+} from './lib/growthData'
+import { downloadGrowthExport, makeGrowthExport } from './lib/growthExport'
 
 type Connection = 'connecting' | 'connected' | 'reconnecting' | 'offline'
 type Tool = 'select' | 'orbit' | 'wind'
-type Metric = 'height' | 'totalBranchLength' | 'branchCount' | 'leafCount' | 'canopyWidth'
-type Vector3 = [number, number, number]
-type PlantSnapshot = {
-  schema?: string
-  plant?: { name?: string; species?: string; lifeStage?: string }
-  skeleton?: {
-    nodes?: Array<{ id: number; parentId: number; position: Vector3; radius?: number; active?: boolean; type?: string }>
-    leaves?: Array<{ id: number; parentNodeId: number; position: Vector3; size?: [number, number]; active?: boolean }>
-  }
-}
-type Point = { step: number; age: number; lifeStage: string; height: number; totalBranchLength: number; branchCount: number; leafCount: number; canopyWidth: number; plantState?: PlantSnapshot }
 type State = Point & { speed: number; mode: number; nodeCount: number; recordedFrameCount: number; recordedEndAge: number }
 type Log = { time: string; text: string; tone: 'ok' | 'warn' | 'muted' }
-type Stage = { key: string; label: string; age: number }
 
 const engineUrl = import.meta.env.VITE_ENGINE_WS_URL || 'ws://127.0.0.1:4317'
 const socket = ref<WebSocket | null>(null)
@@ -30,7 +36,6 @@ const pendingAction = ref<string | null>(null)
 const history = ref<Point[]>(offlineFrames())
 const state = ref<State>({ ...history.value[0], speed: 1, mode: 0, nodeCount: 1, recordedFrameCount: history.value.length, recordedEndAge: 30 })
 const names: Record<Metric, string> = { height: '植物高度', totalBranchLength: '枝干总长度', branchCount: '分枝数量', leafCount: '叶片数量', canopyWidth: '冠幅' }
-const stageNames: Record<string, string> = { seedling: '\u5e7c\u82d7', vegetative: '\u8425\u517b\u751f\u957f', mature: '\u6210\u719f', completed: '\u5b8c\u6210', senescent: '\u8001\u5316' }
 const stages = ref<Stage[]>(stageListFromFrames(history.value))
 const chartHover = ref<Point | null>(null)
 const label = computed(() => ({
@@ -43,9 +48,9 @@ const maxAge = computed(() => Math.max(30, state.value.recordedEndAge, history.v
 const progress = computed(() => Math.min(100, age.value / maxAge.value * 100))
 const current = computed(() => ({ height: state.value.height, totalBranchLength: state.value.totalBranchLength, branchCount: state.value.branchCount, leafCount: state.value.leafCount, canopyWidth: state.value.canopyWidth }))
 const viewportGrowthProgress = computed(() => Math.max(0, Math.min(1, age.value / Math.max(0.001, maxAge.value))))
-const path = computed(() => makePath(sample(history.value, 160), metric.value))
-const area = computed(() => `${path.value} L 1000 240 L 0 240 Z`)
 const chartMax = computed(() => Math.max(1, ...history.value.map(x => x[metric.value])))
+const path = computed(() => makePath(sample(history.value, 160), metric.value, maxAge.value, chartMax.value))
+const area = computed(() => `${path.value} L 1000 240 L 0 240 Z`)
 const chartUnit = computed(() => metric.value === 'branchCount' || metric.value === 'leafCount' ? '' : ' m')
 const chartPrecision = computed(() => metric.value === 'branchCount' || metric.value === 'leafCount' ? 0 : 2)
 const chartTicks = computed(() => [chartMax.value, chartMax.value * .75, chartMax.value * .5, chartMax.value * .25, 0])
@@ -60,30 +65,6 @@ let reconnectTimer = 0
 let allowReconnect = true
 const maxReconnectAttempts = 5
 
-function offlineFrames(): Point[] { return Array.from({ length: 61 }, (_, step) => { const age = step / 2, g = 1 / (1 + Math.exp(-(age - 4.5) * .56)); return { step, age, lifeStage: age < .5 ? 'Seedling' : age < 3 ? 'Vegetative' : age < 20 ? 'Mature' : 'Senescent', height: +(.15 + 8.6 * g).toFixed(3), totalBranchLength: +(.2 + 112 * g ** 1.18).toFixed(3), branchCount: Math.round(2 + 174 * g ** 1.45), leafCount: Math.round(8 + 2630 * g ** 1.7), canopyWidth: +(.4 + 7.2 * g).toFixed(3) } }) }
-function stageTitle(stage: Stage) { return stageNames[stage.key] ?? stage.label }
-function stageListFromFrames(frames: Point[]): Stage[] {
-  const stages: Stage[] = []
-  for (const frame of frames) {
-    const key = frame.lifeStage.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-') || `stage-${frame.step}`
-    if (!stages.some(stage => stage.key === key)) stages.push({ key, label: frame.lifeStage, age: frame.age })
-  }
-  return stages.length ? stages : [{ key: 'seedling', label: 'Seedling', age: 0 }]
-}
-function parseStages(value: unknown, frames: Point[]): Stage[] {
-  if (Array.isArray(value)) {
-    const parsed = value.map(item => {
-      if (!item || typeof item !== 'object') return null
-      const stage = item as Record<string, unknown>
-      const age = asNumber(stage.age, NaN)
-      const key = String(stage.key ?? '').trim()
-      const label = String(stage.label ?? key).trim()
-      return key && label && Number.isFinite(age) ? { key, label, age } : null
-    }).filter((stage): stage is Stage => !!stage).sort((a, b) => a.age - b.age)
-    if (parsed.length) return parsed
-  }
-  return stageListFromFrames(frames)
-}
 function log(text: string, tone: Log['tone'] = 'muted') { logs.value.unshift({ time: new Intl.DateTimeFormat('zh-CN', { hour: '2-digit', minute: '2-digit', second: '2-digit' }).format(new Date()), text, tone }); logs.value = logs.value.slice(0, 6) }
 function send(command: Record<string, unknown>) { try { if (socket.value?.readyState !== WebSocket.OPEN) return false; socket.value.send(JSON.stringify(command)); return true } catch { return false } }
 function clearConfirmation() { if (confirmationTimer) window.clearTimeout(confirmationTimer); confirmationTimer = 0; pendingAction.value = null }
@@ -109,17 +90,10 @@ function runOfflinePlayback(timestamp: number) {
   offlinePlaybackFrame = requestAnimationFrame(runOfflinePlayback)
 }
 function startOfflinePlayback() { stopOfflinePlayback(); offlinePlaybackFrame = requestAnimationFrame(runOfflinePlayback) }
-function asNumber(value: unknown, fallback = 0) { return typeof value === 'number' && Number.isFinite(value) ? value : fallback }
-function toSnapshot(value: unknown): PlantSnapshot | undefined {
-  if (!value || typeof value !== 'object') return undefined
-  const snapshot = value as PlantSnapshot
-  return snapshot.schema === 'plantsim.skeleton' && Array.isArray(snapshot.skeleton?.nodes) ? snapshot : undefined
-}
-function toPoint(value: Record<string, unknown>): Point | null { const m = value.metrics && typeof value.metrics === 'object' ? value.metrics as Record<string, unknown> : value; const a = asNumber(value.age, NaN); return Number.isFinite(a) ? { step: asNumber(value.step, history.value.length), age: a, lifeStage: String(value.lifeStage ?? 'Seedling'), height: asNumber(m.height), totalBranchLength: asNumber(m.totalBranchLength), branchCount: asNumber(m.branchCount), leafCount: asNumber(m.leafCount), canopyWidth: asNumber(m.canopyWidth), plantState: toSnapshot(value.plantState) } : null }
-function nearest(target: number) { return history.value.reduce<Point | null>((best, x) => !best || Math.abs(x.age - target) < Math.abs(best.age - target) ? x : best, null) }
+function nearest(target: number) { return findNearest(history.value, target) }
 function localSeek(target: number) { const x = nearest(target); if (!x) return; age.value = x.age; state.value = { ...state.value, ...x, recordedFrameCount: history.value.length, recordedEndAge: history.value.at(-1)?.age ?? x.age } }
-function append(x: Point) { const prev = history.value.at(-1); if (!prev || Math.abs(prev.age - x.age) > .0001) { if (prev && x.age < prev.age) history.value = history.value.filter(y => y.age <= x.age + .0001); history.value.push(x) } else history.value[history.value.length - 1] = x }
-function receive(payload: Record<string, unknown>) { if (payload.type === 'error') { log(`引擎错误：${String(payload.message ?? '未知错误')}`, 'warn'); clearConfirmation(); return } if (payload.type === 'environment_updated') { light.value = asNumber(payload.lightIntensity, light.value); return } if (payload.type === 'growth_data' && Array.isArray(payload.frames)) { const frames = payload.frames.map(x => toPoint(x as Record<string, unknown>)).filter((x): x is Point => !!x); if (frames.length) { history.value = frames; stages.value = parseStages(payload.keyStages, frames); localSeek(age.value); log(`已载入 ${frames.length} 帧生长记录。`, 'ok') }; return } if (payload.type === 'growth_state') { const x = toPoint(payload); if (!x) return; state.value = { ...x, speed: asNumber(payload.speed, 1), mode: asNumber(payload.mode), nodeCount: asNumber(payload.nodeCount), recordedFrameCount: asNumber(payload.recordedFrameCount, history.value.length), recordedEndAge: asNumber(payload.recordedEndAge, x.age) }; age.value = x.age; speed.value = state.value.speed; playing.value = state.value.mode === 1; append(x); clearConfirmation() } }
+function append(x: Point) { history.value = appendFrame(history.value, x) }
+function receive(payload: Record<string, unknown>) { if (payload.type === 'error') { log(`引擎错误：${String(payload.message ?? '未知错误')}`, 'warn'); clearConfirmation(); return } if (payload.type === 'environment_updated') { light.value = asNumber(payload.lightIntensity, light.value); return } if (payload.type === 'growth_data' && Array.isArray(payload.frames)) { const frames = normalizeFrames(payload.frames.map((x, index) => toPoint(x, index)).filter((x): x is Point => !!x)); if (frames.length) { history.value = frames; stages.value = parseStages(payload.keyStages, frames); localSeek(age.value); log(`已载入 ${frames.length} 帧生长记录。`, 'ok') }; return } if (payload.type === 'growth_state') { const x = toPoint(payload); if (!x) return; state.value = { ...x, speed: asNumber(payload.speed, 1), mode: asNumber(payload.mode), nodeCount: asNumber(payload.nodeCount), recordedFrameCount: asNumber(payload.recordedFrameCount, history.value.length), recordedEndAge: asNumber(payload.recordedEndAge, x.age) }; age.value = x.age; speed.value = state.value.speed; playing.value = state.value.mode === 1; append(x); clearConfirmation() } }
 function clearReconnectTimer() { if (reconnectTimer) window.clearTimeout(reconnectTimer); reconnectTimer = 0 }
 function scheduleReconnect(reason: string) {
   if (!allowReconnect || reconnectTimer || isEngineConnected.value) return
@@ -202,9 +176,7 @@ function commitChartSeek(event: MouseEvent) {
   if (send({ type: 'growth_seek', age: point.age })) { awaitConfirmation('chart seek'); log(`Chart seek requested at ${point.age.toFixed(2)}y.`) }
   else log(`Chart seek to ${point.age.toFixed(2)}y.`, 'ok')
 }
-function exportData(csv: boolean) { let text: string, type: string, name: string; if (csv) { const rows = ['step,age_years,life_stage,height,total_branch_length,branch_count,leaf_count,canopy_width', ...history.value.map(x => [x.step, x.age.toFixed(6), x.lifeStage, x.height.toFixed(6), x.totalBranchLength.toFixed(6), x.branchCount, x.leafCount, x.canopyWidth.toFixed(6)].join(','))]; text = `\uFEFF${rows.join('\n')}`; type = 'text/csv;charset=utf-8'; name = 'plant-growth-metrics.csv' } else { text = JSON.stringify({ schema: 'plantsim.growth_metrics.frontend', exportedAt: new Date().toISOString(), frameCount: history.value.length, frames: history.value }, null, 2); type = 'application/json'; name = 'plant-growth-metrics.json' }; const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([text], { type })); a.download = name; a.click(); URL.revokeObjectURL(a.href); log(`已导出生长指标 ${csv ? 'CSV' : 'JSON'}。`, 'ok') }
-function sample<T>(items: T[], max: number) { if (items.length <= max) return items; const step = (items.length - 1) / (max - 1); return Array.from({ length: max }, (_, i) => items[Math.round(i * step)]) }
-function makePath(items: Point[], key: Metric) { const end = Math.max(.001, maxAge.value), top = Math.max(1, ...items.map(x => x[key])); return items.map((x, i) => `${i ? 'L' : 'M'} ${(x.age / end * 1000).toFixed(2)} ${(228 - x[key] / top * 198).toFixed(2)}`).join(' ') }
+function exportData(csv: boolean) { downloadGrowthExport(makeGrowthExport(csv ? 'csv' : 'json', history.value)); log(`已导出生长指标 ${csv ? 'CSV' : 'JSON'}。`, 'ok') }
 onMounted(() => { localSeek(0); connect(true) }); onBeforeUnmount(() => { allowReconnect = false; clearReconnectTimer(); stopOfflinePlayback(); clearConfirmation(); socket.value?.close() })
 </script>
 
