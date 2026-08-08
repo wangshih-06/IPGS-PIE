@@ -22,7 +22,12 @@ private slots:
     void onLightSliderChanged(int value);
     void onEnvironmentUpdated(float intensity);
 
-    // 第9周：生长时间轴 UI
+    // 第11周：向光性与向地性 UI 槽
+    void onPhotoSliderChanged(int value);
+    void onGraviSliderChanged(int value);
+    void onTropismUpdated(float photoWeight, float graviWeight);
+
+    // 生长时间轴 UI
     void onStartClicked();
     void onPauseClicked();
     void onResumeClicked();
@@ -40,7 +45,13 @@ private:
     QLabel* lightValueLabel_ = nullptr;
     QLabel* engineStatusLabel_ = nullptr;
 
-    // 第9周：生长时间轴控件
+    // 第11周：向性控制控件与标签
+    QSlider* photoSlider_ = nullptr;
+    QLabel* photoValueLabel_ = nullptr;
+    QSlider* graviSlider_ = nullptr;
+    QLabel* graviValueLabel_ = nullptr;
+
+    // 生长时间轴控件
     QPushButton* startButton_ = nullptr;
     QPushButton* pauseButton_ = nullptr;
     QPushButton* resumeButton_ = nullptr;

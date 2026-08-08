@@ -22,8 +22,18 @@ int main(int argc, char* argv[]) {
     EngineWindow window(&simulationEngine);
     QObject::connect(&webSocketServer, &WebSocketServer::lightIntensityRequested,
                      &simulationEngine, &SimulationEngine::setLightIntensity);
+    QObject::connect(&webSocketServer, &WebSocketServer::phototropismRequested,
+                     &simulationEngine, &SimulationEngine::setPhototropismWeight);
+    QObject::connect(&webSocketServer, &WebSocketServer::gravitropismRequested,
+                     &simulationEngine, &SimulationEngine::setGravitropismWeight);
+    QObject::connect(&webSocketServer, &WebSocketServer::lightPositionRequested,
+                     &simulationEngine, &SimulationEngine::setLightSourcePosition);
+
     QObject::connect(&simulationEngine, &SimulationEngine::environmentUpdated,
                      &webSocketServer, &WebSocketServer::broadcastState);
+    QObject::connect(&simulationEngine, &SimulationEngine::tropismUpdated,
+                     &webSocketServer, &WebSocketServer::broadcastTropismState);
+
     QObject::connect(&webSocketServer, &WebSocketServer::logMessage,
                      [&window](const QString& message) {
                          qInfo().noquote() << message;

@@ -1,6 +1,6 @@
 // ============================================================================
 // SimulationEngine - environment, plant state bridge, and growth time controller
-// 第9周：接入 GrowthClock，把 tick 推进到 PlantModel + MetaballField
+// 第11周：向光性与向地性，环境资源状态传递
 // ============================================================================
 #include "Engine/SimulationEngine.h"
 
@@ -41,7 +41,6 @@ SimulationEngine::SimulationEngine(QObject* parent)
     metaballField_.rebuildFromPlant(plantModel_, fieldSettings);
     initialPlantSnapshot_ = plantModel_.toJson();
 
-    // 第9周：连接 GrowthClock → SimulationEngine
     connect(&growthClock_, &GrowthClock::tickProduced,
             this, &SimulationEngine::onGrowthTickProduced);
     connect(&growthClock_, &GrowthClock::logMessage,
@@ -66,21 +65,14 @@ SimulationEngine::SimulationEngine(QObject* parent)
                              .arg(growthClock_.timeline().thresholds().matureEndYear, 0, 'f', 1)
                              .arg(growthClock_.timeline().speed(), 0, 'f', 1);
 
-    // 第9周：初始生成一次植物表面网格（age=0 的幼苗态）
     rebuildPlantSurface();
-    const Vec3 minB = plantSurface_.stats.bounds.minimum;
-    const Vec3 maxB = plantSurface_.stats.bounds.maximum;
-    qInfo().noquote() << QStringLiteral("Plant surface ready: vertices=%1, triangles=%2, bounds=[(%3, %4, %5) .. (%6, %7, %8)]")
-                             .arg(static_cast<qulonglong>(plantSurface_.positions.size()))
-                             .arg(static_cast<qulonglong>(plantSurface_.indices.size() / 3))
-                             .arg(minB.x(), 0, 'f', 2).arg(minB.y(), 0, 'f', 2).arg(minB.z(), 0, 'f', 2)
-                             .arg(maxB.x(), 0, 'f', 2).arg(maxB.y(), 0, 'f', 2).arg(maxB.z(), 0, 'f', 2);
 }
 
 // ============================================================================
 // 访问器
 // ============================================================================
 const EnvironmentParams& SimulationEngine::environment() const { return environment_; }
+EnvironmentParams& SimulationEngine::mutableEnvironment() { return environment_; }
 const PlantModel& SimulationEngine::plantModel() const { return plantModel_; }
 const PlantNode* SimulationEngine::plantRoot() const { return plantModel_.rootNode(); }
 const QString& SimulationEngine::plantProgram() const { return plantProgram_; }
@@ -88,18 +80,47 @@ std::size_t SimulationEngine::plantNodeCount() const { return plantModel_.nodeCo
 const MetaballField& SimulationEngine::metaballField() const { return metaballField_; }
 
 // ============================================================================
-// 光照（保留原有功能）
+// 第11周：环境光照与向性槽
 // ============================================================================
 void SimulationEngine::setLightIntensity(float intensity) {
     environment_.lightIntensity = qBound(0.0f, intensity, 1.0f);
-    qInfo().noquote() << QStringLiteral("Light = %1").arg(environment_.lightIntensity, 0, 'f', 1);
-    qInfo().noquote() << QStringLiteral("Environment Updated");
+    if (!environment_.lightSources.empty()) {
+        environment_.lightSources[0].intensity = environment_.lightIntensity;
+    }
+    qInfo().noquote() << QStringLiteral("Light intensity = %1").arg(environment_.lightIntensity, 0, 'f', 2);
     emit logMessage(QStringLiteral("Environment Updated"));
     emit environmentUpdated(environment_.lightIntensity);
 }
 
+void SimulationEngine::setPhototropismWeight(float weight) {
+    environment_.phototropismWeight = qBound(0.0f, weight, 1.0f);
+    qInfo().noquote() << QStringLiteral("Phototropism weight = %1").arg(environment_.phototropismWeight, 0, 'f', 2);
+    emit tropismUpdated(environment_.phototropismWeight, environment_.gravitropismWeight);
+}
+
+void SimulationEngine::setGravitropismWeight(float weight) {
+    environment_.gravitropismWeight = qBound(0.0f, weight, 1.0f);
+    qInfo().noquote() << QStringLiteral("Gravitropism weight = %1").arg(environment_.gravitropismWeight, 0, 'f', 2);
+    emit tropismUpdated(environment_.phototropismWeight, environment_.gravitropismWeight);
+}
+
+void SimulationEngine::setLightSourcePosition(int lightId, float x, float y, float z) {
+    for (auto& light : environment_.lightSources) {
+        if (light.id == lightId) {
+            light.position = Vec3(x, y, z);
+            if (light.type == LightType::Directional) {
+                light.direction = (-light.position).normalized();
+            }
+            qInfo().noquote() << QStringLiteral("Light #%1 position set to (%2, %3, %4)")
+                                     .arg(lightId).arg(x, 0, 'f', 1).arg(y, 0, 'f', 1).arg(z, 0, 'f', 1);
+            emit environmentUpdated(environment_.lightIntensity);
+            break;
+        }
+    }
+}
+
 // ============================================================================
-// 第9周：生长时间轴 slots
+// 生长时间轴 slots
 // ============================================================================
 void SimulationEngine::startGrowth()  { growthClock_.start(); }
 void SimulationEngine::pauseGrowth()  { growthClock_.pause(); }
@@ -123,7 +144,7 @@ void SimulationEngine::setGrowthSpeed(float speed) { growthClock_.setSpeed(speed
 void SimulationEngine::stepGrowth(float deltaYears) { growthClock_.stepOnce(deltaYears); }
 
 // ============================================================================
-// 第9周：内部槽
+// 内部槽
 // ============================================================================
 void SimulationEngine::onGrowthTickProduced(const GrowthSample& sample) {
     const float previousAge = plantModel_.age;
@@ -162,6 +183,7 @@ void SimulationEngine::onGrowthTickProduced(const GrowthSample& sample) {
     }
     emit growthUpdated(buildReport(sample));
 }
+
 void SimulationEngine::captureGrowthKeyframe(const QString& label) {
     const GrowthKeyframe& keyframe = keyframes_.capture(plantModel_, plantModel_.age, label, static_cast<int>(growthEvents_.size()));
     growthEvents_.record(plantModel_.age, GrowthEvent::Type::KeyframeCaptured, -1, -1, -1, keyframe.label);
@@ -182,9 +204,16 @@ void SimulationEngine::rebuildMetaballField() {
 }
 
 void SimulationEngine::rebuildPlantSurface() {
-    // 采样间距约 0.06（略粗于离线演示以支撑 ~30 FPS 实时更新）
     const ScalarFieldGrid grid = metaballField_.sampleGrid(0.06f);
     plantSurface_ = MarchingCubes::extract(grid, metaballField_.isoThreshold());
+}
+
+void SimulationEngine::collectAllNodePositions(const PlantNode* node, std::vector<Vec3>* positions) const {
+    if (!node || !positions) return;
+    positions->push_back(node->position);
+    for (const auto& child : node->children) {
+        collectAllNodePositions(child.get(), positions);
+    }
 }
 
 GrowthResourceState SimulationEngine::resourceState() const {
@@ -194,6 +223,8 @@ GrowthResourceState SimulationEngine::resourceState() const {
     state.nutrition = environment_.nutrition;
     state.temperature = environment_.temperature;
     state.wind = environment_.windIntensity;
+    state.environment = environment_;
+    collectAllNodePositions(plantModel_.rootNode(), &state.allNodePositions);
     return state;
 }
 

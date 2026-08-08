@@ -1,10 +1,11 @@
-﻿#pragma once
+#pragma once
 
 #include <unordered_map>
 #include <unordered_set>
 #include <vector>
 
 #include "Common/MathTypes.h"
+#include "Engine/EnvironmentParams.h"
 #include "Engine/GrowthEventManager.h"
 #include "Plant/PlantModel.h"
 
@@ -15,7 +16,12 @@ struct GrowthResourceState {
     float temperature = 22.0f;
     float wind = 0.28f;
 
+    // 第11周扩展：环境参数与骨架节点位置（用于计算局部受光与阴影遮挡）
+    EnvironmentParams environment;
+    std::vector<Vec3> allNodePositions;
+
     float availability() const;
+    float localLightExposure(const Vec3& position) const;
 };
 
 struct DynamicBranchingSettings {
@@ -53,20 +59,23 @@ public:
     void update(PlantModel& plant, float currentAge, float deltaYears,
                 const GrowthResourceState& resources, GrowthEventManager* events = nullptr);
 
+    // 第11周：向光性与向地性方向计算静态辅助方法
+    static Vec3 calculateTropismDirection(const PlantNode& parent, int childIndex, int ageBucket,
+                                          PlantNodeType nodeType, const EnvironmentParams& env);
+
 private:
     static void collectNodes(PlantNode* node, std::vector<PlantNode*>* output);
     static float clamp01(float value);
     static float hash01(int nodeId, int ageBucket);
-    static Vec3 branchDirection(const PlantNode& parent, int childIndex, int ageBucket);
     static int leafCount(const PlantModel& plant, int nodeId);
 
     void updateNodeHealth(PlantNode& node, float currentAge, float deltaYears,
-                          float resource, GrowthEventManager* events);
+                          const GrowthResourceState& resources, GrowthEventManager* events);
     void markSubtreeDead(PlantNode& node, float currentAge, GrowthEventManager* events);
     void tryCreateBranch(PlantModel& plant, PlantNode& node, float currentAge,
-                         float resource, GrowthEventManager* events);
+                         const GrowthResourceState& resources, GrowthEventManager* events);
     void trySproutLeaf(PlantModel& plant, PlantNode& node, float currentAge,
-                       float resource, GrowthEventManager* events);
+                       const GrowthResourceState& resources, GrowthEventManager* events);
 
     DynamicBranchingSettings settings_;
     std::unordered_map<int, int> lastBranchAttemptBucket_;

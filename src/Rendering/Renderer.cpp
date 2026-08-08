@@ -17,12 +17,10 @@
 namespace {
 using Vertex = MeshVertex;
 
-// 第9周：按高度把植物表面从树干棕色渐变到叶冠绿色
 Vec3 plantSurfaceColor(const Vec3& position, const Vec3& normal, float heightNormalized) {
     const Vec3 bark(0.42f, 0.27f, 0.16f);
     const Vec3 crown(0.30f, 0.58f, 0.30f);
     Vec3 color = bark * (1.0f - heightNormalized) + crown * heightNormalized;
-    // 法线方向带来的轻微明暗变化，让表面更有立体感
     color += normal * 0.04f;
     return color.cwiseMax(Vec3::Zero()).cwiseMin(Vec3::Ones());
 }
@@ -80,6 +78,20 @@ void addCalibrationCube(QVector<Vertex>& vertices) {
     addFace(vertices, p010, p011, p111, p110, Vec3(0, 1, 0), Vec3(0.38f, 0.72f, 0.57f));
     addFace(vertices, p000, p100, p101, p001, Vec3(0, -1, 0), Vec3(0.09f, 0.22f, 0.24f));
 }
+
+// 绘制光源 Gizmo 标记
+void addLightGizmo(QVector<Vertex>& vertices, const Vec3& pos, const Vec3& color) {
+    const float r = 0.12f;
+    const Vec3 pX0(pos.x() - r, pos.y(), pos.z());
+    const Vec3 pX1(pos.x() + r, pos.y(), pos.z());
+    const Vec3 pY0(pos.x(), pos.y() - r, pos.z());
+    const Vec3 pY1(pos.x(), pos.y() + r, pos.z());
+    const Vec3 pZ0(pos.x(), pos.y(), pos.z() - r);
+    const Vec3 pZ1(pos.x(), pos.y(), pos.z() + r);
+    addCylinder(vertices, pX0, pX1, 0.02f, color);
+    addCylinder(vertices, pY0, pY1, 0.02f, color);
+    addCylinder(vertices, pZ0, pZ1, 0.02f, color);
+}
 }
 
 Renderer::Renderer(QWidget* parent)
@@ -108,7 +120,6 @@ void Renderer::initializeGL() {
     buildReferenceMesh();
     mesh_.upload(this);
     qInfo("Renderer modules ready: Camera / Shader / Mesh / Light");
-    qInfo("Calibration mesh vertices: %d", mesh_.vertexCount());
 
     clock_.start();
     auto* timer = new QTimer(this);
@@ -200,14 +211,17 @@ void Renderer::buildReferenceMesh() {
     addCylinder(vertices, Vec3(0, 0.02f, 0), Vec3(2.2f, 0.02f, 0), 0.025f, Vec3(0.78f, 0.32f, 0.28f));
     addCylinder(vertices, Vec3(0, 0.02f, 0), Vec3(0, 2.4f, 0), 0.025f, Vec3(0.47f, 0.84f, 0.55f));
     addCylinder(vertices, Vec3(0, 0.02f, 0), Vec3(0, 0.02f, 2.2f), 0.025f, Vec3(0.34f, 0.65f, 0.86f));
+
+    // 绘制环境中的光源 Gizmos
+    for (const auto& ls : environment_.lightSources) {
+        if (ls.enabled) {
+            addLightGizmo(vertices, ls.position, ls.color);
+        }
+    }
     mesh_.setVertices(vertices);
+    mesh_.upload(this);
 }
 
-// ============================================================================
-// 第9周：植物表面网格（枝干伸长动画）
-//   把 Marching Cubes 提取的 SurfaceMesh 转为带颜色的 MeshVertex。
-//   上传延迟到 paintGL（GL 上下文就绪）时执行，避免构造函数阶段无上下文。
-// ============================================================================
 void Renderer::setPlantSurface(const SurfaceMesh& mesh) {
     buildPlantMesh(mesh);
     hasPlantMesh_ = plantMesh_.vertexCount() > 0;
@@ -233,7 +247,6 @@ void Renderer::buildPlantMesh(const SurfaceMesh& mesh) {
         plantMesh_.setVertices(QVector<MeshVertex>());
         return;
     }
-    // 高度归一化用于树干→叶冠的颜色渐变
     const float minY = mesh.stats.bounds.minimum.y();
     const float maxY = mesh.stats.bounds.maximum.y();
     const float heightSpan = std::max(1.0e-4f, maxY - minY);
@@ -254,12 +267,13 @@ void Renderer::buildPlantMesh(const SurfaceMesh& mesh) {
 void Renderer::setEnvironment(const EnvironmentParams& environment) {
     environment_ = environment;
     light_.setEnvironment(environment);
+    buildReferenceMesh();
     update();
 }
 
 void Renderer::setLightIntensity(float intensity) {
     environment_.lightIntensity = qBound(0.0f, intensity, 1.0f);
-    light_.intensity = environment_.lightIntensity;
+    light_.setEnvironment(environment_);
     update();
 }
 

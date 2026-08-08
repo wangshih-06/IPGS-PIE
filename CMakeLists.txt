@@ -50,14 +50,16 @@ target_include_directories(PlantImplicitSurface PUBLIC
 )
 target_link_libraries(PlantImplicitSurface PUBLIC PlantDataModel Qt5::Core)
 
-# 第9周：生长时间模型（数学 + Qt 播放控制器 + 状态快照）
+# 第9/11周：生长时间模型 + 环境与向光性/向地性参数
 add_library(PlantGrowth STATIC
     src/Engine/GrowthTimeline.cpp
     src/Engine/GrowthClock.cpp
     src/Engine/DynamicBranchingSystem.cpp
+    src/Engine/EnvironmentParams.cpp
     src/Engine/GrowthEventManager.cpp
     src/Engine/GrowthKeyframeStore.cpp
     include/Engine/DynamicBranchingSystem.h
+    include/Engine/EnvironmentParams.h
     include/Engine/GrowthEventManager.h
     include/Engine/GrowthKeyframeStore.h
     include/Engine/GrowthTimeline.h
@@ -161,7 +163,6 @@ target_link_libraries(PlantModelExportDemo PRIVATE
     Qt5::Core
 )
 
-# 第9周：生长时间轴 CLI 演示
 add_executable(GrowthTimelineDemo
     src/Tools/GrowthTimelineDemo.cpp
 )
@@ -174,7 +175,6 @@ target_link_libraries(GrowthTimelineDemo PRIVATE
     Qt5::Core
 )
 
-# 第9周：枝干伸长动画数值验证
 add_executable(GrowthSurfaceCheck
     src/Tools/GrowthSurfaceCheck.cpp
 )
@@ -185,6 +185,25 @@ target_link_libraries(GrowthSurfaceCheck PRIVATE
     PlantGeometry
     PlantDataModel
     Qt5::Gui
+    Qt5::Core
+)
+
+add_executable(DynamicBranchingDemo
+    src/Tools/DynamicBranchingDemo.cpp
+)
+target_link_libraries(DynamicBranchingDemo PRIVATE
+    PlantGrowth
+    PlantDataModel
+    Qt5::Core
+)
+
+# 第11周：向光性与向地性自动化验证 CLI
+add_executable(TropismDemo
+    src/Tools/TropismDemo.cpp
+)
+target_link_libraries(TropismDemo PRIVATE
+    PlantGrowth
+    PlantDataModel
     Qt5::Core
 )
 
@@ -201,19 +220,7 @@ if(MSVC)
     target_compile_options(PlantModelExportDemo PRIVATE /utf-8)
     target_compile_options(GrowthTimelineDemo PRIVATE /utf-8)
     target_compile_options(GrowthSurfaceCheck PRIVATE /utf-8)
-    target_compile_options(PlantGeometry PRIVATE /utf-8)
-endif()
-
-# 第10周：动态分枝、叶片萌发、事件与关键帧回归演示
-add_executable(DynamicBranchingDemo
-    src/Tools/DynamicBranchingDemo.cpp
-)
-target_link_libraries(DynamicBranchingDemo PRIVATE
-    PlantGrowth
-    PlantDataModel
-    Qt5::Core
-)
-
-if(MSVC)
     target_compile_options(DynamicBranchingDemo PRIVATE /utf-8)
+    target_compile_options(TropismDemo PRIVATE /utf-8)
+    target_compile_options(PlantGeometry PRIVATE /utf-8)
 endif()

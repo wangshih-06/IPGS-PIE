@@ -19,6 +19,11 @@ float GrowthResourceState::availability() const {
                       0.04f * windFactor, 0.0f, 1.0f);
 }
 
+float GrowthResourceState::localLightExposure(const Vec3& position) const {
+    float exposure = environment.calculateLightExposure(position, allNodePositions);
+    return std::clamp(light * exposure, 0.05f, 1.0f);
+}
+
 DynamicBranchingSystem::DynamicBranchingSystem(const DynamicBranchingSettings& settings)
     : settings_(settings) {}
 
@@ -41,7 +46,9 @@ float DynamicBranchingSystem::hash01(int nodeId, int ageBucket) {
     return static_cast<float>(value & 0x00ffffffu) / static_cast<float>(0x01000000u);
 }
 
-Vec3 DynamicBranchingSystem::branchDirection(const PlantNode& parent, int childIndex, int ageBucket) {
+Vec3 DynamicBranchingSystem::calculateTropismDirection(const PlantNode& parent, int childIndex, int ageBucket,
+                                                        PlantNodeType nodeType, const EnvironmentParams& env) {
+    // 1. 基础惯性/随机偏移
     const float phase = hash01(parent.id + childIndex * 31, ageBucket) * 6.283185307f;
     const float tilt = 0.35f + 0.55f * hash01(parent.id + 17, ageBucket + childIndex);
     Vec3 axis = parent.direction.cross(Vec3::UnitY());
@@ -50,10 +57,26 @@ Vec3 DynamicBranchingSystem::branchDirection(const PlantNode& parent, int childI
     Vec3 tangent = axis.cross(parent.direction);
     if (tangent.squaredNorm() < kEpsilon) tangent = Vec3::UnitZ();
     tangent.normalize();
-    Vec3 direction = parent.direction * (1.0f - tilt) +
-                     axis * (std::cos(phase) * tilt) +
-                     tangent * (std::sin(phase) * tilt);
-    return direction.squaredNorm() > kEpsilon ? direction.normalized() : Vec3::UnitY();
+    Vec3 baseDir = parent.direction * (1.0f - tilt) +
+                   axis * (std::cos(phase) * tilt) +
+                   tangent * (std::sin(phase) * tilt);
+    if (baseDir.squaredNorm() < kEpsilon) baseDir = Vec3::UnitY();
+    baseDir.normalize();
+
+    // 2. 向光性 (Phototropism) 矢量计算
+    Vec3 lightDir = env.calculateEffectiveLightDirection(parent.position);
+
+    // 3. 向地性 (Gravitropism/Geotropism) 矢量计算
+    // 茎枝: 负向地性 (向上, +Y)； 根系: 正向地性 (向下, -Y)
+    Vec3 gravDir = (nodeType == PlantNodeType::Root) ? Vec3(0.0f, -1.0f, 0.0f) : Vec3(0.0f, 1.0f, 0.0f);
+
+    // 4. 加权融合
+    const float wp = std::clamp(env.phototropismWeight, 0.0f, 0.9f);
+    const float wg = std::clamp(env.gravitropismWeight, 0.0f, 0.9f);
+    const float wInertia = std::max(0.1f, 1.0f - wp - wg);
+
+    Vec3 blendedDir = baseDir * wInertia + lightDir * wp + gravDir * wg;
+    return blendedDir.squaredNorm() > kEpsilon ? blendedDir.normalized() : baseDir;
 }
 
 void DynamicBranchingSystem::collectNodes(PlantNode* node, std::vector<PlantNode*>* output) {
@@ -71,11 +94,15 @@ int DynamicBranchingSystem::leafCount(const PlantModel& plant, int nodeId) {
 }
 
 void DynamicBranchingSystem::updateNodeHealth(PlantNode& node, float currentAge,
-                                               float deltaYears, float resource,
+                                               float deltaYears, const GrowthResourceState& resources,
                                                GrowthEventManager* events) {
     if (!node.active || deltaYears <= 0.0f) return;
-    if (resource < settings_.healthDecayThreshold) {
-        node.health = clamp01(node.health - (settings_.healthDecayThreshold - resource) *
+
+    const float nodeExposure = resources.localLightExposure(node.position);
+    const float effectiveResource = resources.availability() * (0.4f + 0.6f * nodeExposure);
+
+    if (effectiveResource < settings_.healthDecayThreshold) {
+        node.health = clamp01(node.health - (settings_.healthDecayThreshold - effectiveResource) *
                               settings_.healthDecayRate * deltaYears);
     } else {
         node.health = clamp01(node.health + settings_.healthRecoveryRate * deltaYears);
@@ -84,7 +111,7 @@ void DynamicBranchingSystem::updateNodeHealth(PlantNode& node, float currentAge,
         markSubtreeDead(node, currentAge, events);
         return;
     }
-    if (node.age >= settings_.growthStopAge || resource < settings_.resourceThreshold) {
+    if (node.age >= settings_.growthStopAge || effectiveResource < settings_.resourceThreshold) {
         if (node.growing) {
             node.growing = false;
             if (events && stopReported_.insert(node.id).second) {
@@ -94,8 +121,9 @@ void DynamicBranchingSystem::updateNodeHealth(PlantNode& node, float currentAge,
         }
     }
     if (node.growing) {
+        const float growthSpeed = 0.3f + 0.7f * nodeExposure;
         const float smoothing = std::max(settings_.smoothingYears, 0.01f);
-        node.growthProgress = clamp01(node.growthProgress + deltaYears / smoothing);
+        node.growthProgress = clamp01(node.growthProgress + (deltaYears * growthSpeed) / smoothing);
     }
 }
 
@@ -107,18 +135,21 @@ void DynamicBranchingSystem::markSubtreeDead(PlantNode& node, float currentAge,
     node.growthProgress = 0.0f;
     if (events && deathReported_.insert(node.id).second) {
         events->record(currentAge, GrowthEvent::Type::BranchDied, node.id, node.parentId,
-                       -1, QStringLiteral("Branch died from insufficient growth resources"));
+                       -1, QStringLiteral("Branch died from insufficient growth resources / shade"));
     }
     for (auto& child : node.children) markSubtreeDead(*child, currentAge, events);
 }
 
 void DynamicBranchingSystem::tryCreateBranch(PlantModel& plant, PlantNode& node,
-                                               float currentAge, float resource,
+                                               float currentAge, const GrowthResourceState& resources,
                                                GrowthEventManager* events) {
     if (!node.active || !node.growing || node.depth >= settings_.maxDepth ||
         static_cast<int>(plant.branches().size()) >= settings_.maxTotalBranches ||
         static_cast<int>(node.children.size()) >= settings_.maxChildrenPerNode ||
         node.age < settings_.branchStartAge) return;
+
+    const float nodeExposure = resources.localLightExposure(node.position);
+    const float resource = resources.availability() * (0.35f + 0.65f * nodeExposure);
 
     const int ageBucket = static_cast<int>(std::floor(node.age / std::max(settings_.branchInterval, 0.05f)));
     auto attempt = lastBranchAttemptBucket_.find(node.id);
@@ -138,12 +169,13 @@ void DynamicBranchingSystem::tryCreateBranch(PlantModel& plant, PlantNode& node,
     if (hash01(node.id, ageBucket) > probability) return;
 
     const int childIndex = static_cast<int>(node.children.size());
-    const Vec3 direction = branchDirection(node, childIndex, ageBucket);
+    const PlantNodeType childType = (node.type == PlantNodeType::Root) ? PlantNodeType::Root : PlantNodeType::Branch;
+    const Vec3 direction = calculateTropismDirection(node, childIndex, ageBucket, childType, resources.environment);
     const Vec3 position = node.position + node.direction * std::max(node.length, 0.18f);
     const float length = std::max(0.08f, std::max(node.length, 0.18f) * settings_.branchLengthRatio);
     const float radius = std::max(0.012f, node.radius * settings_.branchRadiusRatio);
     PlantNode* child = plant.addNode(node.id, position, direction, radius, length, 0.0f,
-                                     true, PlantNodeType::Branch, node.generation + 1);
+                                     true, childType, node.generation + 1);
     if (!child) return;
     child->growthProgress = 0.04f;
     child->growing = true;
@@ -153,20 +185,25 @@ void DynamicBranchingSystem::tryCreateBranch(PlantModel& plant, PlantNode& node,
                        -1, QStringLiteral("Age/resource triggered branch creation"),
                        QJsonObject{{QStringLiteral("probability"), probability},
                                    {QStringLiteral("resource"), resource},
+                                   {QStringLiteral("lightExposure"), nodeExposure},
                                    {QStringLiteral("generation"), child->generation}});
     }
 }
 
 void DynamicBranchingSystem::trySproutLeaf(PlantModel& plant, PlantNode& node,
-                                             float currentAge, float resource,
+                                             float currentAge, const GrowthResourceState& resources,
                                              GrowthEventManager* events) {
-    if (!node.active || !node.growing || node.age < settings_.leafSproutAge ||
+    if (!node.active || !node.growing || node.type == PlantNodeType::Root || node.age < settings_.leafSproutAge ||
         leafCount(plant, node.id) >= settings_.maxLeavesPerNode) return;
+
+    const float nodeExposure = resources.localLightExposure(node.position);
+    const float resource = resources.availability() * (0.35f + 0.65f * nodeExposure);
+
     const int existing = leafCount(plant, node.id);
     const int ageBucket = static_cast<int>(std::floor(node.age / std::max(settings_.branchInterval, 0.05f)));
     const float probability = clamp01(settings_.leafProbability * (0.55f + 0.45f * resource));
     if (hash01(node.id + existing * 101, ageBucket + 97) > probability) return;
-    const Vec3 direction = branchDirection(node, existing + 11, ageBucket + 19);
+    const Vec3 direction = calculateTropismDirection(node, existing + 11, ageBucket + 19, PlantNodeType::Branch, resources.environment);
     const Vec3 position = node.position + direction * std::max(node.length * 0.72f, 0.08f);
     Leaf& leaf = plant.addLeaf(node.id, position, direction,
                                Vec2(settings_.leafSize, settings_.leafSize * 0.48f),
@@ -183,20 +220,24 @@ void DynamicBranchingSystem::update(PlantModel& plant, float currentAge, float d
                                      const GrowthResourceState& resources,
                                      GrowthEventManager* events) {
     if (!plant.rootNode() || deltaYears <= 0.0f) return;
-    const float resource = resources.availability();
+
     std::vector<PlantNode*> nodes;
     collectNodes(plant.rootNode(), &nodes);
+
     for (PlantNode* node : nodes) {
-        updateNodeHealth(*node, currentAge, deltaYears, resource, events);
+        updateNodeHealth(*node, currentAge, deltaYears, resources, events);
         if (node->active) {
-            tryCreateBranch(plant, *node, currentAge, resource, events);
-            trySproutLeaf(plant, *node, currentAge, resource, events);
+            tryCreateBranch(plant, *node, currentAge, resources, events);
+            trySproutLeaf(plant, *node, currentAge, resources, events);
         }
     }
     for (Leaf& leaf : plant.mutableLeaves()) {
         if (!leaf.active) continue;
-        if (resource < settings_.healthDecayThreshold) {
-            leaf.health = clamp01(leaf.health - (settings_.healthDecayThreshold - resource) *
+        const float nodeExposure = resources.localLightExposure(leaf.position);
+        const float effectiveResource = resources.availability() * (0.4f + 0.6f * nodeExposure);
+
+        if (effectiveResource < settings_.healthDecayThreshold) {
+            leaf.health = clamp01(leaf.health - (settings_.healthDecayThreshold - effectiveResource) *
                                   settings_.healthDecayRate * deltaYears);
         }
         if (leaf.health <= settings_.deathThreshold) {
@@ -204,7 +245,7 @@ void DynamicBranchingSystem::update(PlantModel& plant, float currentAge, float d
             leaf.growing = false;
             leaf.growthProgress = 0.0f;
             if (events) events->record(currentAge, GrowthEvent::Type::LeafDied, -1,
-                                       leaf.parentNodeId, leaf.id, QStringLiteral("Leaf senesced"));
+                                       leaf.parentNodeId, leaf.id, QStringLiteral("Leaf senesced from low light"));
         } else if (leaf.growing) {
             leaf.growthProgress = clamp01(leaf.growthProgress + deltaYears /
                                           std::max(settings_.smoothingYears, 0.01f));

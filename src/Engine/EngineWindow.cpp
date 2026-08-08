@@ -100,7 +100,7 @@ EngineWindow::EngineWindow(SimulationEngine* simulationEngine, QWidget* parent)
     inspectorLayout->setContentsMargins(19, 19, 19, 18);
     inspectorLayout->setSpacing(0);
 
-    inspectorLayout->addWidget(createSectionTitle(QStringLiteral("ENVIRONMENT"), inspector));
+    inspectorLayout->addWidget(createSectionTitle(QStringLiteral("ENVIRONMENT & LIGHTING"), inspector));
     inspectorLayout->addSpacing(14);
 
     auto* lightTitleRow = new QHBoxLayout();
@@ -110,22 +110,50 @@ EngineWindow::EngineWindow(SimulationEngine* simulationEngine, QWidget* parent)
     lightValueLabel_->setAlignment(Qt::AlignRight | Qt::AlignVCenter);
     lightTitleRow->addWidget(lightValueLabel_);
     inspectorLayout->addLayout(lightTitleRow);
-    inspectorLayout->addSpacing(8);
+    inspectorLayout->addSpacing(6);
 
     lightSlider_ = new QSlider(Qt::Horizontal, inspector);
     lightSlider_->setRange(0, 100);
+    lightSlider_->setValue(80);
     lightSlider_->setSingleStep(1);
     lightSlider_->setPageStep(10);
-    lightSlider_->setToolTip(QStringLiteral("Adjust the renderer light intensity"));
+    lightSlider_->setToolTip(QStringLiteral("Adjust light intensity"));
     inspectorLayout->addWidget(lightSlider_);
+    inspectorLayout->addSpacing(12);
 
-    auto* rangeLabels = new QHBoxLayout();
-    rangeLabels->setContentsMargins(0, 5, 0, 0);
-    rangeLabels->addWidget(createLabel(QStringLiteral("0"), QStringLiteral("RangeLabel"), inspector));
-    rangeLabels->addStretch();
-    rangeLabels->addWidget(createLabel(QStringLiteral("100"), QStringLiteral("RangeLabel"), inspector));
-    inspectorLayout->addLayout(rangeLabels);
-    inspectorLayout->addSpacing(18);
+    // 第11周：Phototropism (向光性) 滑块
+    auto* photoTitleRow = new QHBoxLayout();
+    photoTitleRow->setContentsMargins(0, 0, 0, 0);
+    photoTitleRow->addWidget(createLabel(QStringLiteral("Phototropism weight"), QStringLiteral("ControlName"), inspector));
+    photoValueLabel_ = createLabel(QStringLiteral("0.45"), QStringLiteral("ControlValue"), inspector);
+    photoValueLabel_->setAlignment(Qt::AlignRight | Qt::AlignVCenter);
+    photoTitleRow->addWidget(photoValueLabel_);
+    inspectorLayout->addLayout(photoTitleRow);
+    inspectorLayout->addSpacing(6);
+
+    photoSlider_ = new QSlider(Qt::Horizontal, inspector);
+    photoSlider_->setRange(0, 100);
+    photoSlider_->setValue(45);
+    photoSlider_->setToolTip(QStringLiteral("Adjust stem phototropism bending weight"));
+    inspectorLayout->addWidget(photoSlider_);
+    inspectorLayout->addSpacing(12);
+
+    // 第11周：Gravitropism (向地性) 滑块
+    auto* graviTitleRow = new QHBoxLayout();
+    graviTitleRow->setContentsMargins(0, 0, 0, 0);
+    graviTitleRow->addWidget(createLabel(QStringLiteral("Gravitropism weight"), QStringLiteral("ControlName"), inspector));
+    graviValueLabel_ = createLabel(QStringLiteral("0.35"), QStringLiteral("ControlValue"), inspector);
+    graviValueLabel_->setAlignment(Qt::AlignRight | Qt::AlignVCenter);
+    graviTitleRow->addWidget(graviValueLabel_);
+    inspectorLayout->addLayout(graviTitleRow);
+    inspectorLayout->addSpacing(6);
+
+    graviSlider_ = new QSlider(Qt::Horizontal, inspector);
+    graviSlider_->setRange(0, 100);
+    graviSlider_->setValue(35);
+    graviSlider_->setToolTip(QStringLiteral("Adjust stem upward & root downward gravitropism weight"));
+    inspectorLayout->addWidget(graviSlider_);
+    inspectorLayout->addSpacing(16);
 
     auto* resetButton = new QPushButton(QStringLiteral("Reset camera"), inspector);
     resetButton->setObjectName(QStringLiteral("SecondaryButton"));
@@ -138,12 +166,12 @@ EngineWindow::EngineWindow(SimulationEngine* simulationEngine, QWidget* parent)
     rotateCheck->setChecked(true);
     rotateCheck->setToolTip(QStringLiteral("Continuously rotate the reference scene"));
     inspectorLayout->addWidget(rotateCheck);
-    inspectorLayout->addSpacing(20);
+    inspectorLayout->addSpacing(18);
     inspectorLayout->addWidget(createDivider(inspector));
-    inspectorLayout->addSpacing(20);
+    inspectorLayout->addSpacing(18);
 
     // ------------------------------------------------------------------
-    // 第9周：GROWTH TIMELINE 面板（开始 / 暂停 / 继续 / 重置 + 速度 + 状态）
+    // GROWTH TIMELINE 面板
     // ------------------------------------------------------------------
     inspectorLayout->addWidget(createSectionTitle(QStringLiteral("GROWTH TIMELINE"), inspector));
     inspectorLayout->addSpacing(14);
@@ -179,13 +207,6 @@ EngineWindow::EngineWindow(SimulationEngine* simulationEngine, QWidget* parent)
     speedSlider_->setValue(10);
     speedSlider_->setToolTip(QStringLiteral("Adjust growth speed multiplier (0.1x .. 8.0x)"));
     inspectorLayout->addWidget(speedSlider_);
-
-    auto* speedRangeRow = new QHBoxLayout();
-    speedRangeRow->setContentsMargins(0, 5, 0, 0);
-    speedRangeRow->addWidget(createLabel(QStringLiteral("0.1x"), QStringLiteral("RangeLabel"), inspector));
-    speedRangeRow->addStretch();
-    speedRangeRow->addWidget(createLabel(QStringLiteral("8.0x"), QStringLiteral("RangeLabel"), inspector));
-    inspectorLayout->addLayout(speedRangeRow);
     inspectorLayout->addSpacing(12);
 
     addMetric(inspectorLayout, QStringLiteral("Plant age"),     QStringLiteral("0.00 y"), inspector);
@@ -202,9 +223,9 @@ EngineWindow::EngineWindow(SimulationEngine* simulationEngine, QWidget* parent)
     inspectorLayout->addSpacing(6);
     addMetric(inspectorLayout, QStringLiteral("Branch radius"), QStringLiteral("0.00"), inspector);
     radiusScaleValueLabel_ = qobject_cast<QLabel*>(inspectorLayout->itemAt(inspectorLayout->count() - 1)->layout()->itemAt(1)->widget());
-    inspectorLayout->addSpacing(20);
+    inspectorLayout->addSpacing(18);
     inspectorLayout->addWidget(createDivider(inspector));
-    inspectorLayout->addSpacing(20);
+    inspectorLayout->addSpacing(18);
 
     inspectorLayout->addWidget(createSectionTitle(QStringLiteral("PLANT STRUCTURE"), inspector));
     inspectorLayout->addSpacing(14);
@@ -216,9 +237,9 @@ EngineWindow::EngineWindow(SimulationEngine* simulationEngine, QWidget* parent)
     addMetric(inspectorLayout, QStringLiteral("Metaball nodes"), QString::number(nodeSourceCount), inspector);
     inspectorLayout->addSpacing(10);
     addMetric(inspectorLayout, QStringLiteral("Segment sources"), QString::number(segmentSourceCount), inspector);
-    inspectorLayout->addSpacing(20);
+    inspectorLayout->addSpacing(18);
     inspectorLayout->addWidget(createDivider(inspector));
-    inspectorLayout->addSpacing(20);
+    inspectorLayout->addSpacing(18);
 
     inspectorLayout->addWidget(createSectionTitle(QStringLiteral("VIEWPORT"), inspector));
     inspectorLayout->addSpacing(14);
@@ -236,12 +257,16 @@ EngineWindow::EngineWindow(SimulationEngine* simulationEngine, QWidget* parent)
     connect(resetButton, &QPushButton::clicked, renderer_, &Renderer::resetCamera);
     connect(rotateCheck, &QCheckBox::toggled, renderer_, &Renderer::setAutoRotate);
     connect(lightSlider_, &QSlider::valueChanged, this, &EngineWindow::onLightSliderChanged);
+    connect(photoSlider_, &QSlider::valueChanged, this, &EngineWindow::onPhotoSliderChanged);
+    connect(graviSlider_, &QSlider::valueChanged, this, &EngineWindow::onGraviSliderChanged);
+
     connect(simulationEngine_, &SimulationEngine::environmentUpdated,
             this, &EngineWindow::onEnvironmentUpdated);
     connect(simulationEngine_, &SimulationEngine::environmentUpdated,
             renderer_, &Renderer::setLightIntensity);
+    connect(simulationEngine_, &SimulationEngine::tropismUpdated,
+            this, &EngineWindow::onTropismUpdated);
 
-    // 第9周：GROWTH TIMELINE 信号/槽
     connect(startButton_,  &QPushButton::clicked, this, &EngineWindow::onStartClicked);
     connect(pauseButton_,  &QPushButton::clicked, this, &EngineWindow::onPauseClicked);
     connect(resumeButton_, &QPushButton::clicked, this, &EngineWindow::onResumeClicked);
@@ -251,17 +276,17 @@ EngineWindow::EngineWindow(SimulationEngine* simulationEngine, QWidget* parent)
             this, &EngineWindow::onGrowthUpdated);
     connect(simulationEngine_, &SimulationEngine::growthLogMessage,
             this, &EngineWindow::showEngineMessage);
-    // 第9周：植物表面网格 → 渲染器（枝干伸长动画）
     connect(simulationEngine_, &SimulationEngine::plantSurfaceUpdated,
             renderer_, &Renderer::setPlantSurface);
 
-    // 初始按钮可用性：未启动前 Start 可用；Pause/Resume 在 running 时才可用
     pauseButton_->setEnabled(false);
     resumeButton_->setEnabled(false);
-    onSpeedSliderChanged(speedSlider_->value());  // 同步初始速度显示
+    onSpeedSliderChanged(speedSlider_->value());
 
     onEnvironmentUpdated(simulationEngine_->environment().lightIntensity);
-    renderer_->setPlantSurface(simulationEngine_->plantSurface());  // 初始幼苗网格
+    onTropismUpdated(simulationEngine_->environment().phototropismWeight,
+                     simulationEngine_->environment().gravitropismWeight);
+    renderer_->setPlantSurface(simulationEngine_->plantSurface());
 }
 
 void EngineWindow::applyTheme() {
@@ -307,6 +332,18 @@ void EngineWindow::onLightSliderChanged(int value) {
     }
 }
 
+void EngineWindow::onPhotoSliderChanged(int value) {
+    if (simulationEngine_) {
+        simulationEngine_->setPhototropismWeight(static_cast<float>(value) / 100.0f);
+    }
+}
+
+void EngineWindow::onGraviSliderChanged(int value) {
+    if (simulationEngine_) {
+        simulationEngine_->setGravitropismWeight(static_cast<float>(value) / 100.0f);
+    }
+}
+
 void EngineWindow::onEnvironmentUpdated(float intensity) {
     const int value = qBound(0, qRound(intensity * 100.0f), 100);
     if (lightSlider_) {
@@ -318,9 +355,23 @@ void EngineWindow::onEnvironmentUpdated(float intensity) {
     }
 }
 
-// ============================================================================
-// 第9周：GROWTH TIMELINE 槽
-// ============================================================================
+void EngineWindow::onTropismUpdated(float photoWeight, float graviWeight) {
+    if (photoSlider_) {
+        const QSignalBlocker blocker(photoSlider_);
+        photoSlider_->setValue(qBound(0, qRound(photoWeight * 100.0f), 100));
+    }
+    if (photoValueLabel_) {
+        photoValueLabel_->setText(QStringLiteral("%1").arg(photoWeight, 0, 'f', 2));
+    }
+    if (graviSlider_) {
+        const QSignalBlocker blocker(graviSlider_);
+        graviSlider_->setValue(qBound(0, qRound(graviWeight * 100.0f), 100));
+    }
+    if (graviValueLabel_) {
+        graviValueLabel_->setText(QStringLiteral("%1").arg(graviWeight, 0, 'f', 2));
+    }
+}
+
 void EngineWindow::onStartClicked() {
     if (simulationEngine_) simulationEngine_->startGrowth();
     pauseButton_->setEnabled(true);
@@ -346,7 +397,7 @@ void EngineWindow::onResetClicked() {
 }
 
 void EngineWindow::onSpeedSliderChanged(int value) {
-    const float speed = value / 10.0f;  // 1 .. 80 → 0.1 .. 8.0
+    const float speed = value / 10.0f;
     if (speedValueLabel_) speedValueLabel_->setText(QStringLiteral("%1x").arg(speed, 0, 'f', 1));
     if (simulationEngine_) simulationEngine_->setGrowthSpeed(speed);
 }
@@ -368,7 +419,6 @@ void EngineWindow::onGrowthUpdated(const GrowthStateReport& report) {
     if (radiusScaleValueLabel_) {
         radiusScaleValueLabel_->setText(QStringLiteral("%1").arg(report.radiusScale, 0, 'f', 3));
     }
-    // 终态自动禁用 Pause
     if (report.growthState == PlantGrowthState::Completed) {
         pauseButton_->setEnabled(false);
         resumeButton_->setEnabled(false);

@@ -1,5 +1,6 @@
 // ============================================================================
 // WebSocketServer - small Qt Network based RFC 6455 text server
+// 第11周：增加向光性/向地性与多光源控制 WebSocket 信号
 // ============================================================================
 #pragma once
 
@@ -23,10 +24,14 @@ signals:
     void clientConnected();
     void clientDisconnected();
     void lightIntensityRequested(float intensity);
+    void phototropismRequested(float weight);
+    void gravitropismRequested(float weight);
+    void lightPositionRequested(int lightId, float x, float y, float z);
     void logMessage(const QString& message);
 
 public slots:
     void broadcastState(float lightIntensity);
+    void broadcastTropismState(float photoWeight, float graviWeight);
 
 private slots:
     void onNewConnection();

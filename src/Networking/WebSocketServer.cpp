@@ -1,11 +1,13 @@
 // ============================================================================
 // WebSocketServer implementation
+// 第11周：向光性与向地性控制指令解析
 // ============================================================================
 #include "Networking/WebSocketServer.h"
 
 #include <QCryptographicHash>
 #include <QJsonDocument>
 #include <QJsonObject>
+#include <QJsonArray>
 #include <QHostAddress>
 #include <QTcpServer>
 #include <QTcpSocket>
@@ -194,6 +196,26 @@ void WebSocketServer::processTextMessage(QTcpSocket* socket, const QByteArray& p
         emit lightIntensityRequested(clampLight(requested));
         return;
     }
+    if (type == QStringLiteral("set_tropism")) {
+        if (command.contains("phototropism")) {
+            emit phototropismRequested(clampLight(static_cast<float>(command.value("phototropism").toDouble(0.45))));
+        }
+        if (command.contains("gravitropism")) {
+            emit gravitropismRequested(clampLight(static_cast<float>(command.value("gravitropism").toDouble(0.35))));
+        }
+        return;
+    }
+    if (type == QStringLiteral("set_light_position")) {
+        const int lightId = command.value("id").toInt(1);
+        const QJsonArray pos = command.value("position").toArray();
+        if (pos.size() == 3) {
+            emit lightPositionRequested(lightId,
+                                         static_cast<float>(pos[0].toDouble()),
+                                         static_cast<float>(pos[1].toDouble()),
+                                         static_cast<float>(pos[2].toDouble()));
+        }
+        return;
+    }
     if (type == QStringLiteral("ping")) {
         sendText(socket, QByteArray("{\"type\":\"pong\"}"));
     }
@@ -216,6 +238,20 @@ void WebSocketServer::broadcastState(float lightIntensity) {
         {"type", "environment_updated"},
         {"message", "Environment Updated"},
         {"lightIntensity", static_cast<double>(lightIntensity)}
+    };
+    const QByteArray payload = QJsonDocument(state).toJson(QJsonDocument::Compact);
+    for (auto it = clients_.begin(); it != clients_.end(); ++it) {
+        if (it.value().handshaken) {
+            sendText(it.key(), payload);
+        }
+    }
+}
+
+void WebSocketServer::broadcastTropismState(float photoWeight, float graviWeight) {
+    const QJsonObject state{
+        {"type", "tropism_updated"},
+        {"phototropismWeight", static_cast<double>(photoWeight)},
+        {"gravitropismWeight", static_cast<double>(graviWeight)}
     };
     const QByteArray payload = QJsonDocument(state).toJson(QJsonDocument::Compact);
     for (auto it = clients_.begin(); it != clients_.end(); ++it) {
