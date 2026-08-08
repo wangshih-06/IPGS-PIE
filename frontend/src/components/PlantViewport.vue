@@ -38,6 +38,7 @@ let dragState: { x: number; y: number; mode: 'orbit' | 'pan' } | null = null
 let animationFrame = 0
 let observer: ResizeObserver | null = null
 let startedAt = 0
+let documentVisible = true
 
 function point(x: number, y: number, z = 0): Point3 {
   return { x, y, z }
@@ -314,6 +315,12 @@ const fallbackScene = computed(() => {
   return buildCherry()
 })
 const scene = computed(() => buildRecordedScene(props.snapshot) ?? scaleFallbackScene(fallbackScene.value, props.growthProgress))
+const orderedBranches = computed(() => [...scene.value.branches].sort((a, b) => {
+  const aDepth = a.points.reduce((sum, item) => sum + item.z, 0)
+  const bDepth = b.points.reduce((sum, item) => sum + item.z, 0)
+  return bDepth - aDepth
+}))
+const orderedLeaves = computed(() => [...scene.value.leaves].sort((a, b) => b.center.z - a.center.z))
 
 function resizeCanvas(canvas: HTMLCanvasElement) {
   const rect = canvas.getBoundingClientRect()
@@ -327,7 +334,7 @@ function resizeCanvas(canvas: HTMLCanvasElement) {
 }
 
 function project(point3: Point3, width: number, height: number, scale: number, elapsed: number) {
-  const sway = props.playing ? Math.sin(elapsed * 1.35 + point3.z * 2.2) * props.windIntensity * 0.085 * (point3.y / 4.5) : 0
+  const sway = props.playing || props.interactionMode === 'wind' ? Math.sin(elapsed * 1.35 + point3.z * 2.2) * props.windIntensity * 0.085 * (point3.y / 4.5) : 0
   const x = point3.x + sway
   const cosYaw = Math.cos(view.yaw)
   const sinYaw = Math.sin(view.yaw)
@@ -550,10 +557,30 @@ function drawLeaf(ctx: CanvasRenderingContext2D, leaf: Leaf, width: number, heig
   ctx.restore()
 }
 
+function shouldAnimate() {
+  return props.playing || dragging.value || (props.interactionMode === 'wind' && props.windIntensity > 0.001)
+}
+
+function cancelDraw() {
+  if (animationFrame) cancelAnimationFrame(animationFrame)
+  animationFrame = 0
+}
+
+function requestDraw() {
+  if (animationFrame || !documentVisible) return
+  animationFrame = requestAnimationFrame(draw)
+}
+
+function handleVisibilityChange() {
+  documentVisible = !document.hidden
+  if (documentVisible) requestDraw()
+  else cancelDraw()
+}
+
 function draw(timestamp: number) {
+  animationFrame = 0
   const canvas = canvasRef.value
-  if (!canvas) return
-  resizeCanvas(canvas)
+  if (!canvas || !documentVisible) return
   const ctx = canvas.getContext('2d')
   if (!ctx) return
   const dpr = Math.min(window.devicePixelRatio || 1, 2)
@@ -598,14 +625,8 @@ function draw(timestamp: number) {
   ctx.fill()
   ctx.restore()
 
-  const branches = [...scene.value.branches].sort((a, b) => {
-    const aDepth = a.points.reduce((sum, item) => sum + item.z, 0)
-    const bDepth = b.points.reduce((sum, item) => sum + item.z, 0)
-    return bDepth - aDepth
-  })
-  branches.forEach((branch) => drawBranch(ctx, branch, width, height, scale, elapsed))
-  const leaves = [...scene.value.leaves].sort((a, b) => b.center.z - a.center.z)
-  leaves.forEach((leaf) => drawLeaf(ctx, leaf, width, height, scale, elapsed))
+  orderedBranches.value.forEach((branch) => drawBranch(ctx, branch, width, height, scale, elapsed))
+  orderedLeaves.value.forEach((leaf) => drawLeaf(ctx, leaf, width, height, scale, elapsed))
 
   ctx.fillStyle = 'rgba(211, 238, 226, 0.68)'
   ctx.font = '11px "IBM Plex Mono", monospace'
@@ -615,7 +636,7 @@ function draw(timestamp: number) {
   const angle = ((Math.round((view.yaw * 180) / Math.PI) % 360) + 360) % 360
   ctx.fillStyle = 'rgba(211, 238, 226, 0.36)'
   ctx.fillText(`ORBIT ${angle}°   ZOOM ${view.zoom.toFixed(2)}×`, 24, 22)
-  animationFrame = requestAnimationFrame(draw)
+  if (shouldAnimate()) requestDraw()
 }
 
 function resetView() {
@@ -624,6 +645,7 @@ function resetView() {
   view.zoom = 1
   view.panX = 0
   view.panY = 0
+  requestDraw()
 }
 
 function handlePointerDown(event: PointerEvent) {
@@ -633,6 +655,7 @@ function handlePointerDown(event: PointerEvent) {
   dragState = { x: event.clientX, y: event.clientY, mode: event.button === 1 || event.shiftKey ? 'pan' : 'orbit' }
   dragging.value = true
   canvas.setPointerCapture(event.pointerId)
+  requestDraw()
 }
 
 function handlePointerMove(event: PointerEvent) {
@@ -648,6 +671,7 @@ function handlePointerMove(event: PointerEvent) {
     view.yaw += dx * 0.012
     view.pitch = Math.max(-0.75, Math.min(0.75, view.pitch + dy * 0.009))
   }
+  requestDraw()
 }
 
 function handlePointerUp(event: PointerEvent) {
@@ -655,27 +679,37 @@ function handlePointerUp(event: PointerEvent) {
   if (canvas?.hasPointerCapture(event.pointerId)) canvas.releasePointerCapture(event.pointerId)
   dragState = null
   dragging.value = false
+  requestDraw()
 }
 
 function handleWheel(event: WheelEvent) {
   view.zoom = Math.max(0.55, Math.min(2.8, view.zoom * Math.exp(-event.deltaY * 0.001)))
+  requestDraw()
 }
 
 onMounted(() => {
   const canvas = canvasRef.value
   if (!canvas) return
   startedAt = performance.now()
-  observer = new ResizeObserver(() => resizeCanvas(canvas))
+  documentVisible = !document.hidden
+  resizeCanvas(canvas)
+  observer = new ResizeObserver(() => {
+    resizeCanvas(canvas)
+    requestDraw()
+  })
   observer.observe(canvas)
-  animationFrame = requestAnimationFrame(draw)
+  document.addEventListener('visibilitychange', handleVisibilityChange)
+  requestDraw()
 })
 
 onBeforeUnmount(() => {
-  cancelAnimationFrame(animationFrame)
+  cancelDraw()
   observer?.disconnect()
+  document.removeEventListener('visibilitychange', handleVisibilityChange)
 })
 
 watch(() => props.resetToken, resetView)
+watch(() => [props.lightIntensity, props.windIntensity, props.playing, props.interactionMode, props.plantType, props.snapshot, props.growthProgress], requestDraw)
 </script>
 
 <template>

@@ -13,3 +13,6 @@
 /.claude/settings.local.json
 /build/run_*.txt
 *.log
+
+# Authoring-only 3D source packages must not be served by Vite.
+/frontend/public/models/*-source/
