@@ -51,6 +51,7 @@ describe('growth data helpers', () => {
     expect(frames.map(item => item.age)).toEqual([1, 2, 3])
     expect(frames[0]).toMatchObject({ step: 11, height: 42, lifeStage: 'Vegetative' })
     expect(appendFrame(frames, frame(2, 'Vegetative', 21))[1].step).toBe(21)
+    expect(appendFrame(frames, frame(0.5, 'Seedling', 5)).map(item => item.age)).toEqual([0.5, 1, 2, 3])
   })
 
   it('parses valid backend frames and rejects malformed age data', () => {

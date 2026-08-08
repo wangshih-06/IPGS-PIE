@@ -18,3 +18,34 @@
 button:focus-visible,input:focus-visible{outline:2px solid #f0d28d;outline-offset:3px}
 .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
 .stages button[aria-pressed="true"] span{font-weight:700}
+
+/* Responsive replay layouts, retained history, and visible operation state. */
+.connection-note{max-width:620px;margin-top:8px!important;color:#7fa28b!important;font-size:11px!important;line-height:1.55}
+.timeline-actions{display:flex;gap:8px;align-items:center}
+.events{content-visibility:auto;contain-intrinsic-size:160px}
+@media(max-width:680px){
+  .viewport-card .viewport-shell{height:340px}
+  .week12-header{align-items:stretch}
+  .header-actions{justify-content:space-between}
+  .timeline-row{align-items:center}
+  .timeline-actions{width:100%}
+  .timeline-actions .ghost{flex:1}
+  .chart-body aside{margin-top:-2px}
+  .plot svg{height:210px}
+}
+@media(max-width:480px){
+  .week12-shell{width:calc(100% - 20px);padding:18px 0 32px}
+  .week12-header{margin-bottom:16px}
+  .header-actions{flex-wrap:wrap}
+  .metrics{gap:8px}
+  .stat{min-height:104px;padding:13px}
+  .stat strong{font-size:22px}
+  .card>header{min-height:48px;padding:0 13px}
+  .chart-body{gap:10px;padding:13px}
+  .chart-body aside{padding:13px}
+  .chart>header{align-items:flex-start;flex-wrap:wrap}
+  .chart>header nav{order:3;width:100%;margin-left:0}
+  .timeline-row{gap:9px;padding:16px 13px 10px}
+  .stages{padding:0 9px 13px}
+  .event-list{padding:7px 13px 12px}
+}

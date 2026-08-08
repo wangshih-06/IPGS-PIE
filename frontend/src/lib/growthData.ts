@@ -130,18 +130,42 @@ export function normalizeFrames(frames: Point[]): Point[] {
   }, [])
 }
 
+/** Find a frame in O(log n); recorded frames are normalized chronologically before use. */
 export function findNearest(frames: Point[], target: number) {
-  return frames.reduce<Point | null>((best, frame) => !best || Math.abs(frame.age - target) < Math.abs(best.age - target) ? frame : best, null)
+  if (!frames.length) return null
+  if (target <= frames[0].age) return frames[0]
+  const last = frames.at(-1)!
+  if (target >= last.age) return last
+  let low = 0
+  let high = frames.length - 1
+  while (low <= high) {
+    const middle = Math.floor((low + high) / 2)
+    if (frames[middle].age < target) low = middle + 1
+    else high = middle - 1
+  }
+  const before = frames[Math.max(0, high)]
+  const after = frames[Math.min(frames.length - 1, low)]
+  return Math.abs(before.age - target) <= Math.abs(after.age - target) ? before : after
 }
 
-/** Add or replace a streamed frame without mutating the existing history array. */
+/**
+ * Insert or replace a streamed frame while retaining the complete recorded timeline.
+ * Seeking backwards must not discard later snapshots that are already available for replay.
+ */
 export function appendFrame(frames: Point[], frame: Point): Point[] {
   const next = [...frames]
-  const previous = next.at(-1)
-  if (!previous || Math.abs(previous.age - frame.age) > 0.0001) {
-    if (previous && frame.age < previous.age) return normalizeFrames([...next.filter(item => item.age <= frame.age + 0.0001), frame])
-    next.push(frame)
-  } else next[next.length - 1] = frame
+  if (!next.length) return [frame]
+  let low = 0
+  let high = next.length
+  while (low < high) {
+    const middle = Math.floor((low + high) / 2)
+    if (next[middle].age < frame.age) low = middle + 1
+    else high = middle
+  }
+  const candidates = [low - 1, low].filter(index => index >= 0 && index < next.length)
+  const duplicate = candidates.find(index => Math.abs(next[index].age - frame.age) < 0.0001)
+  if (duplicate !== undefined) next[duplicate] = frame
+  else next.splice(low, 0, frame)
   return next
 }
 

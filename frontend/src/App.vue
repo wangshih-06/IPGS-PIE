@@ -45,6 +45,14 @@ const label = computed(() => ({
   offline: '离线回放预览',
 }[connection.value]))
 const maxAge = computed(() => Math.max(30, state.value.recordedEndAge, history.value.at(-1)?.age ?? 0))
+const atLatest = computed(() => Math.abs(age.value - (history.value.at(-1)?.age ?? maxAge.value)) < 0.0001)
+const connectionNote = computed(() => {
+  if (pendingAction.value) return `正在等待引擎确认：${pendingAction.value}`
+  if (connection.value === 'connecting') return '正在建立与引擎的连接。'
+  if (connection.value === 'offline') return '当前为离线回放，新操作不会同步到引擎。'
+  if (connection.value === 'reconnecting') return '正在恢复与引擎的连接。'
+  return '记录和回放状态已与引擎同步。'
+})
 const progress = computed(() => Math.min(100, age.value / maxAge.value * 100))
 const current = computed(() => ({ height: state.value.height, totalBranchLength: state.value.totalBranchLength, branchCount: state.value.branchCount, leafCount: state.value.leafCount, canopyWidth: state.value.canopyWidth }))
 const viewportGrowthProgress = computed(() => Math.max(0, Math.min(1, age.value / Math.max(0.001, maxAge.value))))
@@ -149,6 +157,13 @@ function toggle() {
   else { if (age.value >= maxAge.value - 0.0001) localSeek(0); playing.value = true; startOfflinePlayback(); log('开始离线生长过程回放。', 'ok') }
 }
 function reset() { age.value = 0; localSeek(0); if (send({ type: 'growth_reset' })) { awaitConfirmation('重置回放'); log('已请求重置生长记录。') } else { playing.value = false; stopOfflinePlayback(); log('已重置离线回放。', 'ok') } }
+function jumpToLatest() {
+  const target = history.value.at(-1)?.age ?? maxAge.value
+  age.value = target
+  localSeek(target)
+  if (send({ type: 'growth_seek', age: target })) { awaitConfirmation('\u56de\u5230\u6700\u65b0\u5e27'); log(`\u5df2\u8bf7\u6c42\u8fd4\u56de\u6700\u65b0\u8bb0\u5f55\u5e27\uff1a${target.toFixed(2)} \u5e74\u3002`) }
+  else log(`\u5df2\u8fd4\u56de\u6700\u65b0\u8bb0\u5f55\u5e27\uff1a${target.toFixed(2)} \u5e74\u3002`, 'ok')
+}
 function setSpeed(requested: number) { speed.value = requested; if (send({ type: 'growth_speed', speed: requested })) awaitConfirmation('\u8bbe\u7f6e\u56de\u653e\u901f\u5ea6') }
 function setLight(e: Event) { light.value = +(e.target as HTMLInputElement).value; send({ type: 'adjust_light', value: light.value }) }
 function commitChartSeek(target: number) {
@@ -163,10 +178,10 @@ onMounted(() => { localSeek(0); connect(true) }); onBeforeUnmount(() => { allowR
 
 <template>
   <div class="week12-shell">
-    <header class="week12-header"><div><p class="eyebrow">WEEK 12 · GROWTH DATA LAB</p><h1>生长数据记录与回放</h1><p>逐时间步保存植物状态，回放生长过程并追踪结构指标变化。</p></div><div class="header-actions"><span class="chip" :class="connection" role="status"><i></i>{{ label }}</span><button type="button" class="ghost" @click="connect(true)">重新连接</button></div></header>
+    <header class="week12-header"><div><p class="eyebrow">WEEK 12 · GROWTH DATA LAB</p><h1>生长数据记录与回放</h1><p>逐时间步保存植物状态，回放生长过程并追踪结构指标变化。</p><p class="connection-note" aria-live="polite">{{ connectionNote }}</p></div><div class="header-actions"><span class="chip" :class="connection" role="status"><i></i>{{ label }}</span><button type="button" class="ghost" @click="connect(true)">重新连接</button></div></header>
     <section class="metrics"><article class="stat accent"><span>生长年龄</span><strong>{{ state.age.toFixed(2) }}<small> 年</small></strong><em>{{ state.lifeStage }}</em></article><article class="stat"><span>植物高度</span><strong>{{ current.height.toFixed(2) }}<small> m</small></strong><em>HEIGHT</em></article><article class="stat"><span>枝干总长度</span><strong>{{ current.totalBranchLength.toFixed(1) }}<small> m</small></strong><em>BRANCH LENGTH</em></article><article class="stat"><span>分枝 / 叶片</span><strong>{{ current.branchCount }}<small> / {{ current.leafCount }}</small></strong><em>STRUCTURE</em></article><article class="stat"><span>冠幅</span><strong>{{ current.canopyWidth.toFixed(2) }}<small> m</small></strong><em>CANOPY WIDTH</em></article></section>
     <main class="main-grid"><section class="card viewport-card"><header><span>01</span><h2>植物生长预览</h2><b>{{ playing ? 'REPLAYING' : 'PAUSED' }}</b></header><PlantViewport :light-intensity="light" :wind-intensity="wind" :playing="playing" plant-type="cherry" :interaction-mode="tool" :reset-token="resetToken" :snapshot="state.plantState" :growth-progress="viewportGrowthProgress"/><footer><div class="tools"><button type="button" :class="{ active: tool === 'select' }" :aria-pressed="tool === 'select'" @click="tool = 'select'">选择</button><button type="button" :class="{ active: tool === 'orbit' }" :aria-pressed="tool === 'orbit'" @click="tool = 'orbit'">旋转</button><button type="button" :class="{ active: tool === 'wind' }" :aria-pressed="tool === 'wind'" @click="tool = 'wind'">风场</button></div><label>光照 <input type="range" min="0" max="1" step=".01" :value="light" @input="setLight"/></label><button type="button" class="ghost" @click="resetToken += 1">复位视角</button></footer></section><MetricsPanel :recorded-frame-count="state.recordedFrameCount" :recorded-end-age="state.recordedEndAge" :speed="speed" :node-count="state.nodeCount" @speed-change="setSpeed" @export="exportData"/></main>
-    <GrowthTimeline :age="age" :max-age="maxAge" :progress="progress" :playing="playing" :pending="!!pendingAction" :stages="stages" @toggle="toggle" @preview="previewSeek" @seek="commitSeek" @reset="reset" @stage="stage"/>
+    <GrowthTimeline :age="age" :max-age="maxAge" :progress="progress" :playing="playing" :pending="!!pendingAction" :at-latest="atLatest" :stages="stages" @toggle="toggle" @preview="previewSeek" @seek="commitSeek" @reset="reset" @latest="jumpToLatest" @stage="stage"/>
     <GrowthChart :history="history" :metric="metric" :metric-names="names" :current-value="current[metric]" :age="age" :max-age="maxAge" :stages="stages" @update:metric="metric = $event" @seek="commitChartSeek"/>
     <ReplayEventLog :logs="logs"/>
   </div>
