@@ -283,13 +283,35 @@ if(BUILD_TESTING)
         Qt5::Core
     )
 
+    add_executable(PlantEditEngineRegression
+        src/Tests/PlantEditEngineRegression.cpp
+        src/Engine/SimulationEngine.cpp
+        include/Engine/SimulationEngine.h
+    )
+    target_include_directories(PlantEditEngineRegression PRIVATE
+        ${CMAKE_SOURCE_DIR}/include
+    )
+    target_link_libraries(PlantEditEngineRegression PRIVATE
+        PlantLSystem
+        PlantImplicitSurface
+        PlantGrowth
+        PlantPhysics
+        PlantGeometry
+        PlantEditing
+        Qt5::Core
+    )
+
     add_test(NAME PlantNumericalRegression COMMAND PlantNumericalRegression)
+    add_test(NAME PlantEditRegression COMMAND PlantEditDemo)
+    add_test(NAME PlantEditEngineRegression COMMAND PlantEditEngineRegression)
     add_test(NAME PlantPhysicsRegression COMMAND PlantPhysicsDemo)
     add_test(NAME DynamicBranchingRegression COMMAND DynamicBranchingDemo)
     add_test(NAME TropismRegression COMMAND TropismDemo)
     set_tests_properties(PlantNumericalRegression PlantPhysicsRegression
                          DynamicBranchingRegression TropismRegression
                          PROPERTIES LABELS "numerical;headless" TIMEOUT 30)
+    set_tests_properties(PlantEditRegression PlantEditEngineRegression
+                         PROPERTIES LABELS "editing;headless" TIMEOUT 90)
 endif()
 
 # Apply a consistent warning/optimization policy to every project target.
@@ -342,7 +364,10 @@ set(PLANTSIM_PROJECT_TARGETS
     TropismDemo
 )
 if(BUILD_TESTING)
-    list(APPEND PLANTSIM_PROJECT_TARGETS PlantNumericalRegression)
+    list(APPEND PLANTSIM_PROJECT_TARGETS
+        PlantNumericalRegression
+        PlantEditEngineRegression
+    )
 endif()
 foreach(target IN LISTS PLANTSIM_PROJECT_TARGETS)
     plantsim_configure_target(${target})

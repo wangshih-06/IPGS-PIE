@@ -154,7 +154,10 @@ void SimulationEngine::resetGrowth(float initialYears) {
     if (!initialPlantSnapshot_.isEmpty() && PlantModel::fromJson(initialPlantSnapshot_, &restored, &error)) {
         plantModel_ = std::move(restored);
     }
+    const bool restoreExactInitialSnapshot = std::abs(initialYears) <= 1.0e-4f;
+    if (restoreExactInitialSnapshot) restoringRecordedFrame_ = true;
     growthClock_.reset(initialYears);
+    if (restoreExactInitialSnapshot) restoringRecordedFrame_ = false;
     rebuildPhysicsModel();
     rebuildMetaballField();
     rebuildPlantSurface();
@@ -351,7 +354,15 @@ bool SimulationEngine::applyScaleEdit(int nodeId, const ScaleParams& params,
     if (implicitTransaction) beginEdit();
     if (!ScaleTool::apply(plantModel_, nodeId, params, error) ||
         !finalizeEdit(EditDirtyFlag::TransformChanged, preview, error)) {
-        if (implicitTransaction) cancelEdit();
+        // Do not call cancelEdit() here: a rejected implicit command must
+        // restore its snapshot without treating the rollback as a user-visible
+        // edit (and therefore without rebuilding the surface or advancing its
+        // revision). The tools validate before mutation in normal cases, while
+        // this still safely rolls back a partially-applied validation failure.
+        if (implicitTransaction) {
+            QString rollbackError;
+            editHistory_.cancel(&plantModel_, &rollbackError);
+        }
         return false;
     }
     if (implicitTransaction && !preview) commitEditInternal(false);
@@ -364,7 +375,15 @@ bool SimulationEngine::applyBendEdit(int nodeId, const BendParams& params,
     if (implicitTransaction) beginEdit();
     if (!BendTool::apply(plantModel_, nodeId, params, error) ||
         !finalizeEdit(EditDirtyFlag::TransformChanged, preview, error)) {
-        if (implicitTransaction) cancelEdit();
+        // Do not call cancelEdit() here: a rejected implicit command must
+        // restore its snapshot without treating the rollback as a user-visible
+        // edit (and therefore without rebuilding the surface or advancing its
+        // revision). The tools validate before mutation in normal cases, while
+        // this still safely rolls back a partially-applied validation failure.
+        if (implicitTransaction) {
+            QString rollbackError;
+            editHistory_.cancel(&plantModel_, &rollbackError);
+        }
         return false;
     }
     if (implicitTransaction && !preview) commitEditInternal(false);
@@ -377,7 +396,15 @@ bool SimulationEngine::applyRotateEdit(int nodeId, const Vec3& pivot, const Vec3
     if (implicitTransaction) beginEdit();
     if (!RotateTool::apply(plantModel_, nodeId, pivot, axis, angleRadians, error) ||
         !finalizeEdit(EditDirtyFlag::TransformChanged, preview, error)) {
-        if (implicitTransaction) cancelEdit();
+        // Do not call cancelEdit() here: a rejected implicit command must
+        // restore its snapshot without treating the rollback as a user-visible
+        // edit (and therefore without rebuilding the surface or advancing its
+        // revision). The tools validate before mutation in normal cases, while
+        // this still safely rolls back a partially-applied validation failure.
+        if (implicitTransaction) {
+            QString rollbackError;
+            editHistory_.cancel(&plantModel_, &rollbackError);
+        }
         return false;
     }
     if (implicitTransaction && !preview) commitEditInternal(false);
@@ -390,7 +417,15 @@ bool SimulationEngine::applyNodeParameterEdit(int nodeId, const NodeParameterUpd
     if (implicitTransaction) beginEdit();
     if (!NodeParameterEditor::apply(plantModel_, nodeId, update, error) ||
         !finalizeEdit(EditDirtyFlag::ParameterChanged, preview, error)) {
-        if (implicitTransaction) cancelEdit();
+        // Do not call cancelEdit() here: a rejected implicit command must
+        // restore its snapshot without treating the rollback as a user-visible
+        // edit (and therefore without rebuilding the surface or advancing its
+        // revision). The tools validate before mutation in normal cases, while
+        // this still safely rolls back a partially-applied validation failure.
+        if (implicitTransaction) {
+            QString rollbackError;
+            editHistory_.cancel(&plantModel_, &rollbackError);
+        }
         return false;
     }
     if (implicitTransaction && !preview) commitEditInternal(false);
