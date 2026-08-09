@@ -16,6 +16,7 @@
 
 class QWebSocket;
 class QWebSocketServer;
+class SimulationEngine;
 
 class WebSocketServer : public QObject {
     Q_OBJECT
@@ -24,6 +25,9 @@ public:
 
     bool listen(quint16 port = 4317);
     quint16 port() const;
+    // The local Qt WebSocket endpoint invokes interactive edits directly on the
+    // engine so replies can include authoritative mesh and revision metadata.
+    void setSimulationEngine(SimulationEngine* engine);
 
 signals:
     void clientConnected();
@@ -66,12 +70,16 @@ private:
     void initializeCommandHandlers();
     void processTextMessage(QWebSocket* socket, const QByteArray& payload);
     void sendError(QWebSocket* socket, const QString& code, const QString& message);
+    void sendEditUpdated(QWebSocket* socket, const QJsonObject& command,
+                         int nodeId, bool rebuildCompleted);
+    bool resolveEditNode(const QJsonObject& command, int* nodeId, QString* error) const;
     void sendJson(QWebSocket* socket, const QByteArray& payload);
     void broadcastJson(const QByteArray& payload);
     void broadcastGrowthStateNow(const GrowthStateReport& report);
     void removeClient(QWebSocket* socket);
 
     QWebSocketServer* server_ = nullptr;
+    SimulationEngine* simulationEngine_ = nullptr;
     QHash<QWebSocket*, ClientState> clients_;
     QHash<QString, CommandHandler> commandHandlers_;
     QTimer growthBroadcastTimer_;

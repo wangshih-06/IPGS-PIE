@@ -4,6 +4,8 @@
 #include "Networking/WebSocketServer.h"
 
 #include <algorithm>
+#include <cmath>
+#include <optional>
 
 #include <QHostAddress>
 #include <QJsonArray>
@@ -11,6 +13,8 @@
 #include <QJsonObject>
 #include <QWebSocket>
 #include <QWebSocketServer>
+
+#include "Engine/SimulationEngine.h"
 
 namespace {
 constexpr int kProtocolVersion = 1;
@@ -22,6 +26,53 @@ constexpr char kCompressedPayloadMagic[] = "PSZ1";
 
 float clampLight(float value) {
     return qBound(0.0f, value, 1.0f);
+}
+
+bool readFiniteFloat(const QJsonValue& value, float* output) {
+    if (!output || !value.isDouble()) return false;
+    const double number = value.toDouble();
+    if (!std::isfinite(number)) return false;
+    *output = static_cast<float>(number);
+    return std::isfinite(*output);
+}
+
+bool readVec3(const QJsonValue& value, Vec3* output) {
+    if (!output) return false;
+    if (value.isArray()) {
+        const QJsonArray array = value.toArray();
+        float x = 0.0f, y = 0.0f, z = 0.0f;
+        if (array.size() != 3 || !readFiniteFloat(array.at(0), &x) ||
+            !readFiniteFloat(array.at(1), &y) || !readFiniteFloat(array.at(2), &z)) return false;
+        *output = Vec3(x, y, z);
+        return true;
+    }
+    if (value.isObject()) {
+        const QJsonObject object = value.toObject();
+        float x = 0.0f, y = 0.0f, z = 0.0f;
+        if (!readFiniteFloat(object.value("x"), &x) || !readFiniteFloat(object.value("y"), &y) ||
+            !readFiniteFloat(object.value("z"), &z)) return false;
+        *output = Vec3(x, y, z);
+        return true;
+    }
+    return false;
+}
+
+bool readOptionalFloat(const QJsonObject& object, const char* key, std::optional<float>* output) {
+    const QJsonValue value = object.value(QLatin1String(key));
+    if (value.isUndefined() || value.isNull()) return true;
+    float number = 0.0f;
+    if (!readFiniteFloat(value, &number)) return false;
+    *output = number;
+    return true;
+}
+
+bool readOptionalInt(const QJsonObject& object, const char* key, std::optional<int>* output) {
+    const QJsonValue value = object.value(QLatin1String(key));
+    if (value.isUndefined() || value.isNull() || !value.isDouble()) return value.isUndefined() || value.isNull();
+    const double number = value.toDouble();
+    if (!std::isfinite(number) || number != static_cast<double>(static_cast<int>(number))) return false;
+    *output = static_cast<int>(number);
+    return true;
 }
 }
 
@@ -55,6 +106,10 @@ bool WebSocketServer::listen(quint16 port) {
 
 quint16 WebSocketServer::port() const {
     return port_;
+}
+
+void WebSocketServer::setSimulationEngine(SimulationEngine* engine) {
+    simulationEngine_ = engine;
 }
 
 void WebSocketServer::onNewConnection() {
@@ -120,6 +175,146 @@ void WebSocketServer::initializeCommandHandlers() {
     commandHandlers_.insert(QStringLiteral("request_growth_data"), [this](QWebSocket*, const QJsonObject&) {
         emit growthDataRequested();
     });
+    commandHandlers_.insert(QStringLiteral("edit.begin"), [this](QWebSocket* socket, const QJsonObject& command) {
+        int nodeId = -1;
+        QString error;
+        if (!resolveEditNode(command, &nodeId, &error)) {
+            sendError(socket, QStringLiteral("invalid_edit_target"), error);
+            return;
+        }
+        const QString tool = command.value("tool").toString().trimmed().toLower();
+        if (tool != QStringLiteral("pick") && tool != QStringLiteral("scale") &&
+            tool != QStringLiteral("bend") && tool != QStringLiteral("rotate") &&
+            tool != QStringLiteral("parameter")) {
+            sendError(socket, QStringLiteral("invalid_edit_tool"), QStringLiteral("Unsupported edit tool: %1").arg(tool));
+            return;
+        }
+        if (tool != QStringLiteral("pick")) simulationEngine_->beginEdit();
+        sendEditUpdated(socket, command, nodeId, false);
+    });
+    commandHandlers_.insert(QStringLiteral("edit.update"), [this](QWebSocket* socket, const QJsonObject& command) {
+        int nodeId = -1;
+        QString error;
+        if (!resolveEditNode(command, &nodeId, &error)) {
+            sendError(socket, QStringLiteral("invalid_edit_target"), error);
+            return;
+        }
+        const QString tool = command.value("tool").toString().trimmed().toLower();
+        const QJsonObject params = command.value("params").toObject();
+        if (tool.isEmpty() || params.isEmpty()) {
+            sendError(socket, QStringLiteral("invalid_edit_params"), QStringLiteral("edit.update requires a tool and params object."));
+            return;
+        }
+        const bool preview = command.value("preview").toBool(true);
+        bool accepted = false;
+        if (tool == QStringLiteral("scale")) {
+            ScaleParams scale;
+            const QJsonValue rawScale = params.value("scale");
+            if (rawScale.isDouble()) {
+                float uniform = 1.0f;
+                if (!readFiniteFloat(rawScale, &uniform)) {
+                    sendError(socket, QStringLiteral("invalid_edit_params"), QStringLiteral("scale must be finite."));
+                    return;
+                }
+                scale.scale = Vec3::Constant(uniform);
+            } else if (!readVec3(rawScale, &scale.scale)) {
+                sendError(socket, QStringLiteral("invalid_edit_params"), QStringLiteral("scale must be a number or {x,y,z}."));
+                return;
+            }
+            const QString axis = params.value("axis").toString().trimmed().toLower();
+            if (rawScale.isDouble() && axis == QStringLiteral("x")) scale.scale = Vec3(scale.scale.x(), 1.0f, 1.0f);
+            else if (rawScale.isDouble() && axis == QStringLiteral("y")) scale.scale = Vec3(1.0f, scale.scale.x(), 1.0f);
+            else if (rawScale.isDouble() && axis == QStringLiteral("z")) scale.scale = Vec3(1.0f, 1.0f, scale.scale.x());
+            if (!readFiniteFloat(params.value("minimumRadius"), &scale.minimumRadius) && !params.value("minimumRadius").isUndefined()) {
+                sendError(socket, QStringLiteral("invalid_edit_params"), QStringLiteral("minimumRadius must be finite.")); return;
+            }
+            if (!readFiniteFloat(params.value("minimumLength"), &scale.minimumLength) && !params.value("minimumLength").isUndefined()) {
+                sendError(socket, QStringLiteral("invalid_edit_params"), QStringLiteral("minimumLength must be finite.")); return;
+            }
+            scale.scaleLeaves = params.value("scaleLeaves").toBool(true);
+            accepted = simulationEngine_->applyScaleEdit(nodeId, scale, preview, &error);
+        } else if (tool == QStringLiteral("bend")) {
+            BendParams bend;
+            if (!readVec3(params.value("axis"), &bend.bendAxis)) bend.bendAxis = Vec3::UnitZ();
+            float degrees = 0.0f;
+            if (params.contains("angleDegrees")) {
+                if (!readFiniteFloat(params.value("angleDegrees"), &degrees)) {
+                    sendError(socket, QStringLiteral("invalid_edit_params"), QStringLiteral("angleDegrees must be finite.")); return;
+                }
+                bend.angleRadians = degrees * 0.01745329251994329577f;
+            } else if (!readFiniteFloat(params.value("angleRadians"), &bend.angleRadians)) {
+                sendError(socket, QStringLiteral("invalid_edit_params"), QStringLiteral("bend requires angleDegrees or angleRadians.")); return;
+            }
+            if (!readFiniteFloat(params.value("falloff"), &bend.falloff) && !params.value("falloff").isUndefined()) {
+                sendError(socket, QStringLiteral("invalid_edit_params"), QStringLiteral("falloff must be finite.")); return;
+            }
+            if (!readFiniteFloat(params.value("stiffness"), &bend.stiffness) && !params.value("stiffness").isUndefined()) {
+                sendError(socket, QStringLiteral("invalid_edit_params"), QStringLiteral("stiffness must be finite.")); return;
+            }
+            accepted = simulationEngine_->applyBendEdit(nodeId, bend, preview, &error);
+        } else if (tool == QStringLiteral("rotate")) {
+            Vec3 axis = Vec3::UnitY();
+            if (params.contains("axis") && !readVec3(params.value("axis"), &axis)) {
+                sendError(socket, QStringLiteral("invalid_edit_params"), QStringLiteral("axis must be a 3D vector.")); return;
+            }
+            float angleRadians = 0.0f;
+            if (params.contains("angleDegrees")) {
+                float degrees = 0.0f;
+                if (!readFiniteFloat(params.value("angleDegrees"), &degrees)) {
+                    sendError(socket, QStringLiteral("invalid_edit_params"), QStringLiteral("angleDegrees must be finite.")); return;
+                }
+                angleRadians = degrees * 0.01745329251994329577f;
+            } else if (!readFiniteFloat(params.value("angleRadians"), &angleRadians)) {
+                sendError(socket, QStringLiteral("invalid_edit_params"), QStringLiteral("rotate requires angleDegrees or angleRadians.")); return;
+            }
+            const PlantNode* node = simulationEngine_->plantModel().findNode(nodeId);
+            Vec3 pivot = node ? node->position : Vec3::Zero();
+            if (params.contains("pivot") && !readVec3(params.value("pivot"), &pivot)) {
+                sendError(socket, QStringLiteral("invalid_edit_params"), QStringLiteral("pivot must be a 3D vector.")); return;
+            }
+            accepted = simulationEngine_->applyRotateEdit(nodeId, pivot, axis, angleRadians, preview, &error);
+        } else if (tool == QStringLiteral("parameter")) {
+            NodeParameterUpdate update;
+            if (!readOptionalFloat(params, "angleDegrees", &update.angleDegrees) ||
+                !readOptionalFloat(params, "length", &update.length) ||
+                !readOptionalFloat(params, "radius", &update.radius) ||
+                !readOptionalFloat(params, "leafDensity", &update.leafDensity) ||
+                !readOptionalFloat(params, "age", &update.age) ||
+                !readOptionalInt(params, "growthDepth", &update.growthDepth)) {
+                sendError(socket, QStringLiteral("invalid_edit_params"), QStringLiteral("Parameter edit values must be finite numbers."));
+                return;
+            }
+            accepted = simulationEngine_->applyNodeParameterEdit(nodeId, update, preview, &error);
+        } else {
+            sendError(socket, QStringLiteral("invalid_edit_tool"), QStringLiteral("Unsupported edit tool: %1").arg(tool));
+            return;
+        }
+        if (!accepted) {
+            sendError(socket, QStringLiteral("edit_rejected"), error.isEmpty() ? QStringLiteral("The edit was rejected.") : error);
+            return;
+        }
+        sendEditUpdated(socket, command, nodeId, true);
+    });
+    commandHandlers_.insert(QStringLiteral("edit.commit"), [this](QWebSocket* socket, const QJsonObject& command) {
+        int nodeId = -1;
+        QString error;
+        if (!resolveEditNode(command, &nodeId, &error)) { sendError(socket, QStringLiteral("invalid_edit_target"), error); return; }
+        const bool changed = simulationEngine_->commitEdit();
+        sendEditUpdated(socket, command, nodeId, changed);
+    });
+    commandHandlers_.insert(QStringLiteral("edit.undo"), [this](QWebSocket* socket, const QJsonObject& command) {
+        QString error;
+        if (!simulationEngine_ || !simulationEngine_->undoLastEdit(&error)) {
+            sendError(socket, QStringLiteral("nothing_to_undo"), error.isEmpty() ? QStringLiteral("No committed edit is available to undo.") : error);
+            return;
+        }
+        sendEditUpdated(socket, command, simulationEngine_->plantModel().rootNodeId(), true);
+    });
+    commandHandlers_.insert(QStringLiteral("edit.reset"), [this](QWebSocket* socket, const QJsonObject& command) {
+        if (!simulationEngine_) { sendError(socket, QStringLiteral("engine_unavailable"), QStringLiteral("Simulation engine is not configured.")); return; }
+        simulationEngine_->resetPlant();
+        sendEditUpdated(socket, command, simulationEngine_->plantModel().rootNodeId(), true);
+    });
     commandHandlers_.insert(QStringLiteral("ping"), [this](QWebSocket* socket, const QJsonObject&) {
         sendJson(socket, QJsonDocument(QJsonObject{{"type", "pong"}, {"protocolVersion", kProtocolVersion}})
                              .toJson(QJsonDocument::Compact));
@@ -166,6 +361,54 @@ void WebSocketServer::processTextMessage(QWebSocket* socket, const QByteArray& p
         return;
     }
     (*handler)(socket, command);
+}
+
+bool WebSocketServer::resolveEditNode(const QJsonObject& command, int* nodeId, QString* error) const {
+    if (!simulationEngine_) {
+        if (error) *error = QStringLiteral("Simulation engine is not configured.");
+        return false;
+    }
+    const QJsonValue plantIdValue = command.value("plantId");
+    if (!plantIdValue.isDouble() || plantIdValue.toInt() != simulationEngine_->plantModel().id) {
+        if (error) *error = QStringLiteral("plantId must identify the active plant.");
+        return false;
+    }
+    const QString mode = command.value("mode").toString().trimmed().toLower();
+    int resolved = -1;
+    if (mode == QStringLiteral("whole") || mode == QStringLiteral("wholeplant")) {
+        resolved = simulationEngine_->plantModel().rootNodeId();
+    } else {
+        const QJsonValue nodeValue = command.value("nodeId");
+        if (!nodeValue.isDouble()) {
+            if (error) *error = QStringLiteral("nodeId is required for node editing.");
+            return false;
+        }
+        resolved = nodeValue.toInt(-1);
+    }
+    if (!simulationEngine_->plantModel().findNode(resolved)) {
+        if (error) *error = QStringLiteral("Node %1 does not exist in the active plant.").arg(resolved);
+        return false;
+    }
+    if (nodeId) *nodeId = resolved;
+    return true;
+}
+
+void WebSocketServer::sendEditUpdated(QWebSocket* socket, const QJsonObject& command,
+                                      int nodeId, bool rebuildCompleted) {
+    if (!simulationEngine_) return;
+    QJsonObject response{
+        {"type", "plant.edit.updated"},
+        {"protocolVersion", kProtocolVersion},
+        {"plantId", simulationEngine_->plantModel().id},
+        {"nodeId", nodeId},
+        {"revision", static_cast<qint64>(simulationEngine_->editRevision())},
+        {"meshVersion", static_cast<qint64>(simulationEngine_->meshVersion())},
+        {"rebuildCompleted", rebuildCompleted},
+        {"canUndo", simulationEngine_->canUndo()}
+    };
+    const QString requestId = command.value("requestId").toString();
+    if (!requestId.isEmpty()) response.insert("requestId", requestId);
+    sendJson(socket, QJsonDocument(response).toJson(QJsonDocument::Compact));
 }
 
 void WebSocketServer::sendJson(QWebSocket* socket, const QByteArray& payload) {

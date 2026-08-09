@@ -18,6 +18,7 @@ int main(int argc, char* argv[]) {
     QSurfaceFormat::setDefaultFormat(QSurfaceFormat::defaultFormat());
     SimulationEngine simulationEngine;
     WebSocketServer webSocketServer;
+    webSocketServer.setSimulationEngine(&simulationEngine);
 
     EngineWindow window(&simulationEngine);
     QObject::connect(&webSocketServer, &WebSocketServer::lightIntensityRequested,

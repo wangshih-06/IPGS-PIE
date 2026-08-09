@@ -5,6 +5,7 @@ import GrowthChart from './components/GrowthChart.vue'
 import GrowthTimeline from './components/GrowthTimeline.vue'
 import MetricsPanel from './components/MetricsPanel.vue'
 import ReplayEventLog from './components/ReplayEventLog.vue'
+import PlantEditPanel from './components/PlantEditPanel.vue'
 import {
   appendFrame,
   asNumber,
@@ -28,6 +29,8 @@ type Log = { time: string; text: string; tone: 'ok' | 'warn' | 'muted' }
 
 const light = ref(.8), wind = ref(.28), tool = ref<Tool>('orbit'), resetToken = ref(0), playing = ref(false), speed = ref(1), age = ref(0), metric = ref<Metric>('height')
 const logs = ref<Log[]>([])
+const editCanUndo = ref(false)
+let editRequestId = 0
 const pendingAction = ref<string | null>(null)
 const history = ref<Point[]>(offlineFrames())
 const state = ref<State>({ ...history.value[0], speed: 1, mode: 0, nodeCount: 1, recordedFrameCount: history.value.length, recordedEndAge: 30 })
@@ -140,6 +143,12 @@ function receive(payload: Record<string, unknown>) {
     }
     return
   }
+  if (payload.type === 'plant.edit.updated') {
+    editCanUndo.value = payload.canUndo === true
+    clearConfirmation()
+    log(`Edit synchronized: revision ${asNumber(payload.revision)}, mesh ${asNumber(payload.meshVersion)}`, 'ok')
+    return
+  }
   if (payload.type === 'growth_state') {
     // Seek/stage responses carry a complete plant state and must be applied at
     // once; ordinary high-frequency metric broadcasts are merged per paint.
@@ -148,6 +157,18 @@ function receive(payload: Record<string, unknown>) {
   }
 }
 
+function nextEditRequestId() { editRequestId += 1; return `edit-${editRequestId}` }
+function sendEditBegin(payload: { nodeId: number; tool: string }) {
+  if (!send({ type: 'edit.begin', requestId: nextEditRequestId(), plantId: 1, nodeId: payload.nodeId, mode: 'node', tool: payload.tool })) log('Edit command was not sent because the engine is offline.', 'warn')
+}
+function sendEditUpdate(payload: { nodeId: number; tool: string; preview?: boolean; params?: Record<string, unknown> }) {
+  if (!send({ type: 'edit.update', requestId: nextEditRequestId(), plantId: 1, nodeId: payload.nodeId, mode: 'node', tool: payload.tool, preview: payload.preview === true, params: payload.params ?? {} })) log('Edit update was not sent because the engine is offline.', 'warn')
+}
+function sendEditCommit(payload: { nodeId: number }) {
+  if (send({ type: 'edit.commit', requestId: nextEditRequestId(), plantId: 1, nodeId: payload.nodeId, mode: 'node' })) awaitConfirmation('Commit edit')
+}
+function undoEdit() { if (send({ type: 'edit.undo', requestId: nextEditRequestId(), plantId: 1 })) awaitConfirmation('Undo edit') }
+function resetPlantEdit() { if (send({ type: 'edit.reset', requestId: nextEditRequestId(), plantId: 1 })) awaitConfirmation('Reset plant') }
 function previewSeek(target: number) { age.value = target; localSeek(target) }
 function commitSeek(target: number) { if (send({ type: 'growth_seek', age: target })) { awaitConfirmation('\u5b9a\u4f4d\u56de\u653e'); log(`\u5df2\u8bf7\u6c42\u5b9a\u4f4d\u5230 ${target.toFixed(2)} \u5e74\uff0c\u7b49\u5f85\u5f15\u64ce\u786e\u8ba4\u3002`) } else log(`\u79bb\u7ebf\u5b9a\u4f4d\u5230 ${target.toFixed(2)} \u5e74\u3002`, 'ok') }
 function stage(x: Stage) { age.value = x.age; localSeek(x.age); if (send({ type: 'growth_seek', age: x.age })) { awaitConfirmation(`跳转${stageTitle(x)}`); log(`已请求跳转到关键阶段：${stageTitle(x)}。`) } else log(`离线跳转到关键阶段：${stageTitle(x)}。`, 'ok') }
@@ -184,7 +205,7 @@ onMounted(() => { localSeek(0); connect(true) }); onBeforeUnmount(() => { if (gr
   <div class="week12-shell">
     <header class="week12-header"><div><p class="eyebrow">WEEK 12 · GROWTH DATA LAB</p><h1>生长数据记录与回放</h1><p>逐时间步保存植物状态，回放生长过程并追踪结构指标变化。</p><p class="connection-note" aria-live="polite">{{ connectionNote }}</p></div><div class="header-actions"><span class="chip" :class="connection" role="status"><i></i>{{ label }}</span><button type="button" class="ghost" @click="connect(true)">重新连接</button></div></header>
     <section class="metrics"><article class="stat accent"><span>生长年龄</span><strong>{{ state.age.toFixed(2) }}<small> 年</small></strong><em>{{ state.lifeStage }}</em></article><article class="stat"><span>植物高度</span><strong>{{ current.height.toFixed(2) }}<small> m</small></strong><em>HEIGHT</em></article><article class="stat"><span>枝干总长度</span><strong>{{ current.totalBranchLength.toFixed(1) }}<small> m</small></strong><em>BRANCH LENGTH</em></article><article class="stat"><span>分枝 / 叶片</span><strong>{{ current.branchCount }}<small> / {{ current.leafCount }}</small></strong><em>STRUCTURE</em></article><article class="stat"><span>冠幅</span><strong>{{ current.canopyWidth.toFixed(2) }}<small> m</small></strong><em>CANOPY WIDTH</em></article></section>
-    <main class="main-grid"><section class="card viewport-card"><header><span>01</span><h2>植物生长预览</h2><b>{{ playing ? 'REPLAYING' : 'PAUSED' }}</b></header><PlantViewport :light-intensity="light" :wind-intensity="wind" :playing="playing" plant-type="cherry" :interaction-mode="tool" :reset-token="resetToken" :snapshot="state.plantState" :growth-progress="viewportGrowthProgress"/><footer><div class="tools"><button type="button" :class="{ active: tool === 'select' }" :aria-pressed="tool === 'select'" @click="tool = 'select'">选择</button><button type="button" :class="{ active: tool === 'orbit' }" :aria-pressed="tool === 'orbit'" @click="tool = 'orbit'">旋转</button><button type="button" :class="{ active: tool === 'wind' }" :aria-pressed="tool === 'wind'" @click="tool = 'wind'">风场</button></div><label>光照 <input type="range" min="0" max="1" step=".01" :value="light" @input="setLight"/></label><button type="button" class="ghost" @click="resetToken += 1">复位视角</button></footer></section><MetricsPanel :recorded-frame-count="state.recordedFrameCount" :recorded-end-age="state.recordedEndAge" :speed="speed" :node-count="state.nodeCount" @speed-change="setSpeed" @export="exportData"/></main>
+    <main class="main-grid"><section class="card viewport-card"><header><span>01</span><h2>植物生长预览</h2><b>{{ playing ? 'REPLAYING' : 'PAUSED' }}</b></header><PlantViewport :light-intensity="light" :wind-intensity="wind" :playing="playing" plant-type="cherry" :interaction-mode="tool" :reset-token="resetToken" :snapshot="state.plantState" :growth-progress="viewportGrowthProgress"/><footer><div class="tools"><button type="button" :class="{ active: tool === 'select' }" :aria-pressed="tool === 'select'" @click="tool = 'select'">选择</button><button type="button" :class="{ active: tool === 'orbit' }" :aria-pressed="tool === 'orbit'" @click="tool = 'orbit'">旋转</button><button type="button" :class="{ active: tool === 'wind' }" :aria-pressed="tool === 'wind'" @click="tool = 'wind'">风场</button></div><label>光照 <input type="range" min="0" max="1" step=".01" :value="light" @input="setLight"/></label><button type="button" class="ghost" @click="resetToken += 1">复位视角</button></footer></section><MetricsPanel :recorded-frame-count="state.recordedFrameCount" :recorded-end-age="state.recordedEndAge" :speed="speed" :node-count="state.nodeCount" @speed-change="setSpeed" @export="exportData"/><PlantEditPanel :snapshot="state.plantState" :connected="isEngineConnected" :can-undo="editCanUndo" @begin="sendEditBegin" @update="sendEditUpdate" @commit="sendEditCommit" @undo="undoEdit" @reset="resetPlantEdit"/></main>
     <GrowthTimeline :age="age" :max-age="maxAge" :progress="progress" :playing="playing" :pending="!!pendingAction" :at-latest="atLatest" :stages="stages" @toggle="toggle" @preview="previewSeek" @seek="commitSeek" @reset="reset" @latest="jumpToLatest" @stage="stage"/>
     <GrowthChart :history="history" :metric="metric" :metric-names="names" :current-value="current[metric]" :age="age" :max-age="maxAge" :stages="stages" @update:metric="metric = $event" @seek="commitChartSeek"/>
     <ReplayEventLog :logs="logs"/>
