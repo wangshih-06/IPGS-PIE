@@ -118,12 +118,14 @@ add_library(PlantEditing STATIC
     src/Editing/GizmoRenderer.cpp
     src/Editing/ScaleTool.cpp
     src/Editing/BendTool.cpp
+    src/Editing/RotateTool.cpp
     include/Editing/EditTypes.h
     include/Editing/RayPicker.h
     include/Editing/SelectionManager.h
     include/Editing/GizmoRenderer.h
     include/Editing/ScaleTool.h
     include/Editing/BendTool.h
+    include/Editing/RotateTool.h
 )
 target_include_directories(PlantEditing PUBLIC
     ${CMAKE_SOURCE_DIR}/include

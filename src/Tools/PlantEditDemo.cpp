@@ -6,6 +6,7 @@
 #include "Editing/GizmoRenderer.h"
 #include "Editing/RayPicker.h"
 #include "Editing/ScaleTool.h"
+#include "Editing/RotateTool.h"
 
 namespace {
 constexpr float kTolerance = 1.0e-4f;
@@ -103,6 +104,16 @@ int main() {
             "bend should preserve branch length");
     require(model.findNode(node3->id)->parentId == node1->id,
             "bend must keep parent-child topology intact");
+
+    const Vec3 rotatePivot = model.findNode(node1->id)->position;
+    require(RotateTool::apply(model, node1->id, rotatePivot, Vec3::UnitY(), kHalfPi, &scaleError),
+            "subtree rotation should be valid");
+    require(model.findNode(node3->id)->position.isApprox(Vec3(0.0f, 1.0f, 2.0f), kTolerance),
+            "quaternion rotation should transform descendant positions");
+    require(model.findNode(node3->id)->direction.isApprox(Vec3::UnitZ(), kTolerance),
+            "quaternion rotation should transform node directions");
+    require(model.findNode(node3->id)->parentId == node1->id,
+            "rotation must preserve parent-child topology");
 
     const EditRay centerRay = RayPicker::screenToWorldRay(50.0f, 50.0f, 100.0f, 100.0f,
                                                             Mat4::Identity(), Mat4::Identity());
