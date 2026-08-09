@@ -19,6 +19,11 @@
 #include "Engine/GrowthKeyframeStore.h"
 #include "Engine/GrowthTimeline.h"
 #include "Engine/WindField.h"
+#include "Editing/BendTool.h"
+#include "Editing/EditTypes.h"
+#include "Editing/NodeParameterEditor.h"
+#include "Editing/RotateTool.h"
+#include "Editing/ScaleTool.h"
 #include "Geometry/MarchingCubes.h"
 #include "Implicit/MetaballField.h"
 #include "Plant/PlantModel.h"
@@ -51,6 +56,18 @@ public:
     const PlantPhysicsSolver& physicsSolver() const { return physicsSolver_; }
     bool physicsEnabled() const { return physicsEnabled_; }
     bool physicsDebugEnabled() const { return physicsDebugEnabled_; }
+
+    // Interactive-edit bridge. Every accepted edit synchronizes the PBD model,
+    // metaball field and Marching Cubes mesh before notifying render clients.
+    bool applyScaleEdit(int nodeId, const ScaleParams& params, bool preview, QString* error = nullptr);
+    bool applyBendEdit(int nodeId, const BendParams& params, bool preview, QString* error = nullptr);
+    bool applyRotateEdit(int nodeId, const Vec3& pivot, const Vec3& axis,
+                         float angleRadians, bool preview, QString* error = nullptr);
+    bool applyNodeParameterEdit(int nodeId, const NodeParameterUpdate& update,
+                                bool preview, QString* error = nullptr);
+    void rebuildPlantMesh();
+    quint64 editRevision() const { return editRevision_; }
+    quint64 meshVersion() const { return meshVersion_; }
 
 public slots:
     void setLightIntensity(float intensity);
@@ -109,6 +126,7 @@ private:
     void collectAllNodePositions(const PlantNode* node, std::vector<Vec3>* positions) const;
     void rebuildPhysicsModel();
     void emitPhysicsDebugSnapshot();
+    bool finalizeEdit(EditDirtyFlag dirty, bool preview, QString* error);
 
     EnvironmentParams environment_;
     LSystem lSystem_;
@@ -135,4 +153,6 @@ private:
     Vec2 lastSurfaceLeafScale_ = Vec2::Zero();
     std::size_t lastSurfaceNodeCount_ = 0;
     float nextAutoKeyframeAge_ = 1.0f;
+    quint64 editRevision_ = 0;
+    quint64 meshVersion_ = 0;
 };

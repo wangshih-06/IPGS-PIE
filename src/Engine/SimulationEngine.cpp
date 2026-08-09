@@ -345,6 +345,55 @@ void SimulationEngine::onGrowthClockLog(const QString& message) {
     emit growthLogMessage(message);
 }
 
+bool SimulationEngine::applyScaleEdit(int nodeId, const ScaleParams& params,
+                                      bool preview, QString* error) {
+    if (!ScaleTool::apply(plantModel_, nodeId, params, error)) return false;
+    return finalizeEdit(EditDirtyFlag::TransformChanged, preview, error);
+}
+
+bool SimulationEngine::applyBendEdit(int nodeId, const BendParams& params,
+                                     bool preview, QString* error) {
+    if (!BendTool::apply(plantModel_, nodeId, params, error)) return false;
+    return finalizeEdit(EditDirtyFlag::TransformChanged, preview, error);
+}
+
+bool SimulationEngine::applyRotateEdit(int nodeId, const Vec3& pivot, const Vec3& axis,
+                                       float angleRadians, bool preview, QString* error) {
+    if (!RotateTool::apply(plantModel_, nodeId, pivot, axis, angleRadians, error)) return false;
+    return finalizeEdit(EditDirtyFlag::TransformChanged, preview, error);
+}
+
+bool SimulationEngine::applyNodeParameterEdit(int nodeId, const NodeParameterUpdate& update,
+                                              bool preview, QString* error) {
+    if (!NodeParameterEditor::apply(plantModel_, nodeId, update, error)) return false;
+    return finalizeEdit(EditDirtyFlag::ParameterChanged, preview, error);
+}
+
+void SimulationEngine::rebuildPlantMesh() {
+    rebuildMetaballField();
+    rebuildPlantSurface();
+    emit plantSurfaceUpdated(plantSurface_);
+}
+
+bool SimulationEngine::finalizeEdit(EditDirtyFlag dirty, bool preview, QString* error) {
+    if (dirty == EditDirtyFlag::None) return true;
+    if (!plantModel_.validate(error)) return false;
+
+    // The edited pose becomes the baseline for subsequent analytical growth.
+    // Rebase rather than merely recapturing values so the current timeline
+    // scale is not multiplied into length/radius/leaf size twice next tick.
+    const GrowthSample sample = growthClock_.timeline().sample(plantModel_.age);
+    plantModel_.rebaseGrowthBaselines(sample);
+    rebuildPhysicsModel();
+    rebuildMetaballField();
+    rebuildPlantSurface(preview ? 0.26f : 0.18f);
+    ++editRevision_;
+    emit plantSurfaceUpdated(plantSurface_);
+    emit growthUpdated(buildReport(sample, true));
+    if (physicsDebugEnabled_) emitPhysicsDebugSnapshot();
+    return true;
+}
+
 void SimulationEngine::rebuildPhysicsModel() {
     QString error;
     if (!physicsSolver_.rebuildFromPlant(plantModel_, &error)) {
@@ -364,6 +413,7 @@ void SimulationEngine::rebuildPlantSurface(float requestedSpacing) {
     const float spacing = adaptiveSurfaceSpacing(requestedSpacing);
     const ScalarFieldGrid grid = metaballField_.sampleGrid(spacing, 100000);
     plantSurface_ = MarchingCubes::extract(grid, metaballField_.isoThreshold());
+    ++meshVersion_;
     rememberSurfaceState(growthClock_.timeline().sample(plantModel_.age));
 }
 

@@ -294,6 +294,33 @@ void PlantModel::captureBaselines() {
     baselinesCaptured_ = true;
 }
 
+
+void PlantModel::rebaseGrowthBaselines(const GrowthSample& sample) {
+    const int nodeCapacity = nextNodeId_ > 0 ? nextNodeId_ : 64;
+    const int leafCapacity = nextLeafId_ > 0 ? nextLeafId_ : 32;
+    baselineNodeLength_.assign(static_cast<std::size_t>(nodeCapacity), 0.0f);
+    baselineNodeRadius_.assign(static_cast<std::size_t>(nodeCapacity), 0.0f);
+    baselineLeafSize_.assign(static_cast<std::size_t>(leafCapacity), Vec2::Zero());
+
+    const float lengthScale = std::max(sample.lengthScale, 1.0e-6f);
+    const float radiusScale = std::max(sample.radiusScale, 1.0e-6f);
+    visitMutableNodes(rootNode_.get(), [this, lengthScale, radiusScale](PlantNode& node) {
+        if (node.id < 0 || node.id >= static_cast<int>(baselineNodeLength_.size())) return;
+        const float progress = std::max(std::clamp(node.growthProgress, 0.0f, 1.0f), 1.0e-6f);
+        baselineNodeLength_[node.id] = node.length / (lengthScale * progress);
+        baselineNodeRadius_[node.id] = node.radius / (radiusScale * progress);
+    });
+    for (const Leaf& leaf : leaves_) {
+        if (leaf.id < 0 || leaf.id >= static_cast<int>(baselineLeafSize_.size())) continue;
+        const float progress = std::max(std::clamp(leaf.growthProgress, 0.0f, 1.0f), 1.0e-6f);
+        Vec2 divisor = sample.leafScale * progress;
+        divisor.x() = std::max(divisor.x(), 1.0e-6f);
+        divisor.y() = std::max(divisor.y(), 1.0e-6f);
+        baselineLeafSize_[leaf.id] = leaf.size.cwiseQuotient(divisor);
+    }
+    baselinesCaptured_ = true;
+}
+
 void PlantModel::applyGrowthSample(const GrowthSample& sample) {
     if (!baselinesCaptured_) captureBaselines();
     // 把 plant 总年龄同步到时间轴当前 age（GrowthClock 通过 tick 推进）

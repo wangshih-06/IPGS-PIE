@@ -4,6 +4,15 @@
 
 #include "Common/MathTypes.h"
 
+// Indicates which class of plant data an edit changed. Consumers use this to
+// decide whether a lightweight preview or a full geometry rebuild is required.
+enum class EditDirtyFlag {
+    None,
+    TransformChanged,
+    ParameterChanged,
+    TopologyChanged
+};
+
 // Interaction types shared by picking, selection and editing tools.
 enum class EditPickMode {
     Node,

@@ -77,6 +77,9 @@ public:
     // 第9周：按 GrowthSample 把每个节点的 length/radius 与每个 Leaf 的 size
     // 乘上对应的 scale。基线在 captureBaselines() 时锁定，避免被反复叠加。
     void captureBaselines();
+    // Recomputes growth baselines from the currently edited geometry without
+    // applying the current sample scale a second time on the next growth tick.
+    void rebaseGrowthBaselines(const GrowthSample& sample);
     void applyGrowthSample(const GrowthSample& sample);
     void syncBranchStates();
     bool hasBaselines() const { return baselinesCaptured_; }
