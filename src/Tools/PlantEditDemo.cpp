@@ -7,6 +7,7 @@
 #include "Editing/RayPicker.h"
 #include "Editing/ScaleTool.h"
 #include "Editing/RotateTool.h"
+#include "Editing/NodeParameterEditor.h"
 
 namespace {
 constexpr float kTolerance = 1.0e-4f;
@@ -114,6 +115,27 @@ int main() {
             "quaternion rotation should transform node directions");
     require(model.findNode(node3->id)->parentId == node1->id,
             "rotation must preserve parent-child topology");
+
+    const float node2LeafSizeBefore = model.mutableLeaves()[0].size.x();
+    NodeParameterUpdate parameterUpdate;
+    parameterUpdate.angleDegrees = 90.0f;
+    parameterUpdate.length = 0.75f;
+    parameterUpdate.radius = 0.12f;
+    parameterUpdate.leafDensity = 0.4f;
+    parameterUpdate.age = 2.5f;
+    parameterUpdate.growthDepth = 3;
+    require(NodeParameterEditor::apply(model, node2->id, parameterUpdate, &scaleError),
+            "node parameter update should be valid");
+    const PlantNode* editedNode = model.findNode(node2->id);
+    require(close(editedNode->length, 0.75f) && close(editedNode->radius, 0.12f) &&
+            close(editedNode->age, 2.5f) && editedNode->generation == 3,
+            "parameter editor should update node data, not only presentation state");
+    require(editedNode->direction.isApprox(-Vec3::UnitZ(), kTolerance) &&
+            editedNode->position.isApprox(Vec3(0.0f, 0.0f, -0.75f), kTolerance),
+            "angle and length edits should update branch direction and position");
+    require(close(model.mutableLeaves()[0].growthProgress, 0.4f) &&
+            close(model.mutableLeaves()[0].size.x(), node2LeafSizeBefore * 0.4f),
+            "leaf density should update attached leaf model data");
 
     const EditRay centerRay = RayPicker::screenToWorldRay(50.0f, 50.0f, 100.0f, 100.0f,
                                                             Mat4::Identity(), Mat4::Identity());

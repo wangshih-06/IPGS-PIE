@@ -119,6 +119,7 @@ add_library(PlantEditing STATIC
     src/Editing/ScaleTool.cpp
     src/Editing/BendTool.cpp
     src/Editing/RotateTool.cpp
+    src/Editing/NodeParameterEditor.cpp
     include/Editing/EditTypes.h
     include/Editing/RayPicker.h
     include/Editing/SelectionManager.h
@@ -126,6 +127,7 @@ add_library(PlantEditing STATIC
     include/Editing/ScaleTool.h
     include/Editing/BendTool.h
     include/Editing/RotateTool.h
+    include/Editing/NodeParameterEditor.h
 )
 target_include_directories(PlantEditing PUBLIC
     ${CMAKE_SOURCE_DIR}/include
