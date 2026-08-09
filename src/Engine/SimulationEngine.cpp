@@ -262,9 +262,9 @@ void SimulationEngine::onGrowthTickProduced(const GrowthSample& sample) {
         }
     }
     const float deltaYears = sample.age - plantModel_.age;
+    const std::size_t eventCountBefore = growthEvents_.size();
     if (deltaYears > 0.0f) {
         plantModel_.advanceAge(deltaYears);
-        const std::size_t eventCountBefore = growthEvents_.size();
         dynamicBranching_.update(plantModel_, sample.age, deltaYears, resourceState(), &growthEvents_);
         for (const GrowthEvent& event : growthEvents_.since(eventCountBefore)) {
             emit growthEventAdded(toString(event.type), event.age, event.nodeId, event.leafId);
@@ -290,7 +290,14 @@ void SimulationEngine::onGrowthTickProduced(const GrowthSample& sample) {
         emitPhysicsDebugSnapshot();
     }
 
-    if (sample.age != previousAge) {
+    bool topologyChanged = plantModel_.nodeCount() != lastSurfaceNodeCount_;
+    for (const GrowthEvent& event : growthEvents_.since(eventCountBefore)) {
+        topologyChanged = topologyChanged ||
+            event.type == GrowthEvent::Type::BranchCreated ||
+            event.type == GrowthEvent::Type::BranchDied;
+    }
+    const bool physicsChanged = physicsEnabled_ && sample.age != previousAge;
+    if (shouldRebuildPlantSurface(sample, topologyChanged, physicsChanged)) {
         rebuildMetaballField();
         rebuildPlantSurface();
         emit plantSurfaceUpdated(plantSurface_);
@@ -355,8 +362,43 @@ void SimulationEngine::rebuildMetaballField() {
 }
 
 void SimulationEngine::rebuildPlantSurface(float requestedSpacing) {
-    const ScalarFieldGrid grid = metaballField_.sampleGrid(requestedSpacing, 100000);
+    const float spacing = adaptiveSurfaceSpacing(requestedSpacing);
+    const ScalarFieldGrid grid = metaballField_.sampleGrid(spacing, 100000);
     plantSurface_ = MarchingCubes::extract(grid, metaballField_.isoThreshold());
+    rememberSurfaceState(growthClock_.timeline().sample(plantModel_.age));
+}
+
+bool SimulationEngine::shouldRebuildPlantSurface(const GrowthSample& sample,
+                                                 bool topologyChanged,
+                                                 bool physicsChanged) const {
+    if (!surfaceStateInitialized_ || topologyChanged || physicsChanged) {
+        return true;
+    }
+
+    const float speed = std::max(0.1f, growthClock_.timeline().speed());
+    const float scaleDelta = std::max({std::abs(sample.lengthScale - lastSurfaceLengthScale_),
+                                       std::abs(sample.radiusScale - lastSurfaceRadiusScale_),
+                                       (sample.leafScale - lastSurfaceLeafScale_).cwiseAbs().maxCoeff()});
+    // Coalesce small analytical growth changes. At higher playback speeds, keep
+    // the newest geometry while accepting a larger visual age interval.
+    const float minimumAgeStep = 0.075f * std::sqrt(speed);
+    return scaleDelta >= 0.0125f ||
+           sample.age - lastSurfaceAge_ >= minimumAgeStep;
+}
+
+float SimulationEngine::adaptiveSurfaceSpacing(float requestedSpacing) const {
+    const float speed = std::max(0.1f, growthClock_.timeline().speed());
+    const float speedFactor = std::clamp(std::sqrt(speed), 1.0f, 1.8f);
+    return std::max(0.0001f, requestedSpacing * speedFactor);
+}
+
+void SimulationEngine::rememberSurfaceState(const GrowthSample& sample) {
+    surfaceStateInitialized_ = true;
+    lastSurfaceAge_ = sample.age;
+    lastSurfaceLengthScale_ = sample.lengthScale;
+    lastSurfaceRadiusScale_ = sample.radiusScale;
+    lastSurfaceLeafScale_ = sample.leafScale;
+    lastSurfaceNodeCount_ = plantModel_.nodeCount();
 }
 
 void SimulationEngine::collectAllNodePositions(const PlantNode* node, std::vector<Vec3>* positions) const {

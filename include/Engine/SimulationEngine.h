@@ -96,6 +96,11 @@ private slots:
 private:
     void rebuildMetaballField();
     void rebuildPlantSurface(float requestedSpacing = 0.18f);
+    bool shouldRebuildPlantSurface(const GrowthSample& sample,
+                                   bool topologyChanged,
+                                   bool physicsChanged) const;
+    float adaptiveSurfaceSpacing(float requestedSpacing) const;
+    void rememberSurfaceState(const GrowthSample& sample);
     GrowthStateReport buildReport(const GrowthSample& sample) const;
     void captureGrowthFrameIfNeeded();
     GrowthResourceState resourceState() const;
@@ -119,6 +124,12 @@ private:
     bool physicsEnabled_ = false;
     bool physicsDebugEnabled_ = false;
     bool restoringRecordedFrame_ = false;
+    bool surfaceStateInitialized_ = false;
     QJsonObject initialPlantSnapshot_;
+    float lastSurfaceAge_ = 0.0f;
+    float lastSurfaceLengthScale_ = 0.0f;
+    float lastSurfaceRadiusScale_ = 0.0f;
+    Vec2 lastSurfaceLeafScale_ = Vec2::Zero();
+    std::size_t lastSurfaceNodeCount_ = 0;
     float nextAutoKeyframeAge_ = 1.0f;
 };

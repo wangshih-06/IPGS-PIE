@@ -3,7 +3,9 @@
 #include <algorithm>
 #include <cmath>
 #include <functional>
+#include <future>
 #include <numeric>
+#include <thread>
 #include <utility>
 
 #include "Algorithm/PlantNode.h"
@@ -511,23 +513,55 @@ ScalarFieldGrid MetaballField::sampleGrid(float requestedSpacing,
     grid.values.resize(count);
     grid.minimumValue = std::numeric_limits<float>::infinity();
     grid.maximumValue = -std::numeric_limits<float>::infinity();
-    double sum = 0.0;
 
-    for (int z = 0; z < grid.dimensions.z(); ++z) {
-        for (int y = 0; y < grid.dimensions.y(); ++y) {
-            for (int x = 0; x < grid.dimensions.x(); ++x) {
-                const float sample = evaluate(grid.position(x, y, z));
-                grid.values[grid.linearIndex(x, y, z)] = sample;
-                grid.minimumValue = std::min(grid.minimumValue, sample);
-                grid.maximumValue = std::max(grid.maximumValue, sample);
-                sum += sample;
-                if (sample >= isoThreshold_) {
-                    ++grid.samplesAtOrAboveThreshold;
+    // Build the immutable source index before worker threads enter evaluate().
+    // Each worker owns one or more z slices, so writes to grid.values are disjoint.
+    ensureSpatialIndex();
+    struct SliceStatistics {
+        float minimum = std::numeric_limits<float>::infinity();
+        float maximum = -std::numeric_limits<float>::infinity();
+        double sum = 0.0;
+        std::size_t insideCount = 0;
+    };
+    std::vector<SliceStatistics> sliceStats(static_cast<std::size_t>(grid.dimensions.z()));
+    const unsigned int hardwareThreads = std::max(1u, std::thread::hardware_concurrency());
+    const int workerCount = std::min(grid.dimensions.z(),
+                                     static_cast<int>(std::min(8u, hardwareThreads)));
+    const int slicesPerWorker = std::max(1, (grid.dimensions.z() + workerCount - 1) / workerCount);
+    std::vector<std::future<void>> workers;
+    workers.reserve(static_cast<std::size_t>(workerCount));
+
+    for (int firstZ = 0; firstZ < grid.dimensions.z(); firstZ += slicesPerWorker) {
+        const int endZ = std::min(grid.dimensions.z(), firstZ + slicesPerWorker);
+        workers.push_back(std::async(std::launch::async, [this, &grid, &sliceStats, firstZ, endZ]() {
+            for (int z = firstZ; z < endZ; ++z) {
+                SliceStatistics& statistics = sliceStats[static_cast<std::size_t>(z)];
+                for (int y = 0; y < grid.dimensions.y(); ++y) {
+                    for (int x = 0; x < grid.dimensions.x(); ++x) {
+                        const float sample = evaluate(grid.position(x, y, z));
+                        grid.values[grid.linearIndex(x, y, z)] = sample;
+                        statistics.minimum = std::min(statistics.minimum, sample);
+                        statistics.maximum = std::max(statistics.maximum, sample);
+                        statistics.sum += sample;
+                        if (sample >= isoThreshold_) {
+                            ++statistics.insideCount;
+                        }
+                    }
                 }
             }
-        }
+        }));
+    }
+    for (std::future<void>& worker : workers) {
+        worker.get();
     }
 
+    double sum = 0.0;
+    for (const SliceStatistics& statistics : sliceStats) {
+        grid.minimumValue = std::min(grid.minimumValue, statistics.minimum);
+        grid.maximumValue = std::max(grid.maximumValue, statistics.maximum);
+        sum += statistics.sum;
+        grid.samplesAtOrAboveThreshold += statistics.insideCount;
+    }
     if (count == 0) {
         grid.minimumValue = grid.maximumValue = 0.0f;
         grid.meanValue = 0.0;
