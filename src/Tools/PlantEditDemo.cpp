@@ -4,6 +4,7 @@
 
 #include "Editing/GizmoRenderer.h"
 #include "Editing/RayPicker.h"
+#include "Editing/ScaleTool.h"
 
 namespace {
 constexpr float kTolerance = 1.0e-4f;
@@ -26,6 +27,7 @@ int main() {
     PlantNode* node2 = model.addNode(root->id, Vec3(0.7f, 0.8f, 0.0f), Vec3::UnitX(), 0.08f, 1.1f);
     PlantNode* node3 = model.addNode(node1->id, Vec3(0.0f, 2.0f, 0.0f), Vec3::UnitY(), 0.08f, 1.0f);
     model.addLeaf(node2->id, Vec3(0.7f, 0.8f, 0.2f), Vec3::UnitZ(), Vec2(0.25f, 0.1f));
+    model.addLeaf(node1->id, Vec3(0.0f, 1.35f, 0.1f), Vec3::UnitY(), Vec2(0.20f, 0.08f));
 
     const EditRay nodeRay {Vec3(0.0f, 1.0f, 4.0f), -Vec3::UnitZ()};
     const EditPickResult nodePick = RayPicker::pick(model, nodeRay);
@@ -58,6 +60,27 @@ int main() {
         hasBounds = hasBounds || primitive.type == GizmoPrimitiveType::BoundingBox;
     }
     require(hasBounds, "whole-plant selection should include a bounding box");
+
+    ScaleParams uniformScale;
+    uniformScale.scale = Vec3::Constant(2.0f);
+    QString scaleError;
+    require(ScaleTool::apply(model, node1->id, uniformScale, &scaleError), "uniform subtree scale should be valid");
+    require(model.findNode(node1->id)->position.isApprox(Vec3(0.0f, 1.0f, 0.0f), kTolerance),
+            "scale pivot should remain fixed");
+    require(model.findNode(node3->id)->position.isApprox(Vec3(0.0f, 3.0f, 0.0f), kTolerance),
+            "descendant positions should scale around pivot");
+    require(close(model.findNode(node3->id)->length, 2.0f) && close(model.findNode(node3->id)->radius, 0.16f),
+            "scale should synchronize branch dimensions");
+    require(model.mutableLeaves()[1].position.isApprox(Vec3(0.0f, 1.7f, 0.2f), kTolerance),
+            "attached leaves should scale around the same pivot");
+    require(model.findNode(node2->id)->position.isApprox(Vec3(0.7f, 0.8f, 0.0f), kTolerance),
+            "sibling nodes must not be modified by subtree scale");
+
+    ScaleParams axisScale;
+    axisScale.scale = Vec3(2.0f, 1.0f, 1.0f);
+    require(ScaleTool::apply(model, root->id, axisScale, &scaleError), "axis scale should be valid");
+    require(model.findNode(node2->id)->direction.isApprox(Vec3::UnitX(), kTolerance),
+            "axis scale should transform and normalize directions");
 
     const EditRay centerRay = RayPicker::screenToWorldRay(50.0f, 50.0f, 100.0f, 100.0f,
                                                             Mat4::Identity(), Mat4::Identity());
