@@ -21,6 +21,7 @@
 #include "Engine/WindField.h"
 #include "Editing/BendTool.h"
 #include "Editing/EditTypes.h"
+#include "Editing/EditHistory.h"
 #include "Editing/NodeParameterEditor.h"
 #include "Editing/RotateTool.h"
 #include "Editing/ScaleTool.h"
@@ -68,6 +69,16 @@ public:
     void rebuildPlantMesh();
     quint64 editRevision() const { return editRevision_; }
     quint64 meshVersion() const { return meshVersion_; }
+
+    // A single gesture stores one pre-edit snapshot irrespective of how many
+    // preview updates it produces. Undo and reset both rebuild every runtime
+    // representation before notifying observers.
+    void beginEdit();
+    bool commitEdit();
+    bool cancelEdit(QString* error = nullptr);
+    bool undoLastEdit(QString* error = nullptr);
+    bool canUndo() const;
+    void resetPlant();
 
 public slots:
     void setLightIntensity(float intensity);
@@ -127,6 +138,8 @@ private:
     void rebuildPhysicsModel();
     void emitPhysicsDebugSnapshot();
     bool finalizeEdit(EditDirtyFlag dirty, bool preview, QString* error);
+    bool restoreAfterEditHistoryChange(QString* error);
+    bool commitEditInternal(bool rebuildCommittedMesh, QString* error = nullptr);
 
     EnvironmentParams environment_;
     LSystem lSystem_;
@@ -140,6 +153,7 @@ private:
     GrowthEventManager growthEvents_;
     GrowthKeyframeStore keyframes_;
     GrowthDataRecorder growthData_;
+    EditHistory editHistory_;
     PerlinWindField windField_;
     PlantPhysicsSolver physicsSolver_;
     bool physicsEnabled_ = false;

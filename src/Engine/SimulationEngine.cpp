@@ -347,26 +347,93 @@ void SimulationEngine::onGrowthClockLog(const QString& message) {
 
 bool SimulationEngine::applyScaleEdit(int nodeId, const ScaleParams& params,
                                       bool preview, QString* error) {
-    if (!ScaleTool::apply(plantModel_, nodeId, params, error)) return false;
-    return finalizeEdit(EditDirtyFlag::TransformChanged, preview, error);
+    const bool implicitTransaction = !editHistory_.hasActiveEdit();
+    if (implicitTransaction) beginEdit();
+    if (!ScaleTool::apply(plantModel_, nodeId, params, error) ||
+        !finalizeEdit(EditDirtyFlag::TransformChanged, preview, error)) {
+        if (implicitTransaction) cancelEdit();
+        return false;
+    }
+    if (implicitTransaction && !preview) commitEditInternal(false);
+    return true;
 }
 
 bool SimulationEngine::applyBendEdit(int nodeId, const BendParams& params,
                                      bool preview, QString* error) {
-    if (!BendTool::apply(plantModel_, nodeId, params, error)) return false;
-    return finalizeEdit(EditDirtyFlag::TransformChanged, preview, error);
+    const bool implicitTransaction = !editHistory_.hasActiveEdit();
+    if (implicitTransaction) beginEdit();
+    if (!BendTool::apply(plantModel_, nodeId, params, error) ||
+        !finalizeEdit(EditDirtyFlag::TransformChanged, preview, error)) {
+        if (implicitTransaction) cancelEdit();
+        return false;
+    }
+    if (implicitTransaction && !preview) commitEditInternal(false);
+    return true;
 }
 
 bool SimulationEngine::applyRotateEdit(int nodeId, const Vec3& pivot, const Vec3& axis,
                                        float angleRadians, bool preview, QString* error) {
-    if (!RotateTool::apply(plantModel_, nodeId, pivot, axis, angleRadians, error)) return false;
-    return finalizeEdit(EditDirtyFlag::TransformChanged, preview, error);
+    const bool implicitTransaction = !editHistory_.hasActiveEdit();
+    if (implicitTransaction) beginEdit();
+    if (!RotateTool::apply(plantModel_, nodeId, pivot, axis, angleRadians, error) ||
+        !finalizeEdit(EditDirtyFlag::TransformChanged, preview, error)) {
+        if (implicitTransaction) cancelEdit();
+        return false;
+    }
+    if (implicitTransaction && !preview) commitEditInternal(false);
+    return true;
 }
 
 bool SimulationEngine::applyNodeParameterEdit(int nodeId, const NodeParameterUpdate& update,
                                               bool preview, QString* error) {
-    if (!NodeParameterEditor::apply(plantModel_, nodeId, update, error)) return false;
-    return finalizeEdit(EditDirtyFlag::ParameterChanged, preview, error);
+    const bool implicitTransaction = !editHistory_.hasActiveEdit();
+    if (implicitTransaction) beginEdit();
+    if (!NodeParameterEditor::apply(plantModel_, nodeId, update, error) ||
+        !finalizeEdit(EditDirtyFlag::ParameterChanged, preview, error)) {
+        if (implicitTransaction) cancelEdit();
+        return false;
+    }
+    if (implicitTransaction && !preview) commitEditInternal(false);
+    return true;
+}
+
+void SimulationEngine::beginEdit() {
+    editHistory_.begin(plantModel_);
+}
+
+bool SimulationEngine::commitEdit() {
+    return commitEditInternal(true);
+}
+
+bool SimulationEngine::commitEditInternal(bool rebuildCommittedMesh, QString* error) {
+    const bool changed = editHistory_.commit(plantModel_);
+    if (!changed || !rebuildCommittedMesh) return changed;
+    return restoreAfterEditHistoryChange(error);
+}
+
+bool SimulationEngine::cancelEdit(QString* error) {
+    if (!editHistory_.cancel(&plantModel_, error)) return false;
+    return restoreAfterEditHistoryChange(error);
+}
+
+bool SimulationEngine::undoLastEdit(QString* error) {
+    if (!editHistory_.undo(&plantModel_, error)) return false;
+    return restoreAfterEditHistoryChange(error);
+}
+
+bool SimulationEngine::canUndo() const {
+    return editHistory_.canUndo();
+}
+
+void SimulationEngine::resetPlant() {
+    resetGrowth(0.0f);
+    editHistory_.clear();
+    ++editRevision_;
+    emit growthUpdated(buildReport(growthClock_.timeline().sample(plantModel_.age), true));
+}
+
+bool SimulationEngine::restoreAfterEditHistoryChange(QString* error) {
+    return finalizeEdit(EditDirtyFlag::ParameterChanged, false, error);
 }
 
 void SimulationEngine::rebuildPlantMesh() {

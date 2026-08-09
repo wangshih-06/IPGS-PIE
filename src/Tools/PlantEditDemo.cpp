@@ -2,7 +2,10 @@
 #include <cstdlib>
 #include <iostream>
 
+#include <QJsonDocument>
+
 #include "Editing/BendTool.h"
+#include "Editing/EditHistory.h"
 #include "Editing/GizmoRenderer.h"
 #include "Editing/RayPicker.h"
 #include "Editing/ScaleTool.h"
@@ -136,6 +139,25 @@ int main() {
     require(close(model.mutableLeaves()[0].growthProgress, 0.4f) &&
             close(model.mutableLeaves()[0].size.x(), node2LeafSizeBefore * 0.4f),
             "leaf density should update attached leaf model data");
+
+    EditHistory history(2);
+    const QJsonObject beforeHistoryEdit = model.toJson();
+    history.begin(model);
+    ScaleParams historyScale;
+    historyScale.scale = Vec3::Constant(1.1f);
+    require(ScaleTool::apply(model, root->id, historyScale, &scaleError),
+            "history fixture scale should be valid");
+    require(history.commit(model) && history.canUndo() && history.size() == 1,
+            "one completed gesture should create one undo snapshot");
+    require(history.undo(&model, &scaleError), "history should restore the previous snapshot");
+    require(QJsonDocument(model.toJson()) == QJsonDocument(beforeHistoryEdit),
+            "undo must restore the exact pre-edit plant JSON");
+    history.begin(model);
+    require(ScaleTool::apply(model, model.rootNodeId(), historyScale, &scaleError),
+            "history cancel fixture scale should be valid");
+    require(history.cancel(&model, &scaleError), "history should cancel active preview edits");
+    require(QJsonDocument(model.toJson()) == QJsonDocument(beforeHistoryEdit),
+            "cancelling a preview must restore its starting JSON");
 
     const EditRay centerRay = RayPicker::screenToWorldRay(50.0f, 50.0f, 100.0f, 100.0f,
                                                             Mat4::Identity(), Mat4::Identity());
