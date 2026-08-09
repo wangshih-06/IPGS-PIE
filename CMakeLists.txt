@@ -112,6 +112,16 @@ target_include_directories(PlantGeometry PUBLIC
 )
 target_link_libraries(PlantGeometry PUBLIC PlantImplicitSurface Qt5::Core)
 
+add_library(PlantEditing STATIC
+    src/Editing/RayPicker.cpp
+    include/Editing/EditTypes.h
+    include/Editing/RayPicker.h
+)
+target_include_directories(PlantEditing PUBLIC
+    ${CMAKE_SOURCE_DIR}/include
+)
+target_link_libraries(PlantEditing PUBLIC PlantDataModel Qt5::Core)
+
 add_executable(PlantSimulationSystem
     src/main.cpp
     src/Engine/EngineWindow.cpp
@@ -146,6 +156,11 @@ add_executable(PlantStructureDemo
     src/Tools/PlantStructureDemo.cpp
 )
 target_link_libraries(PlantStructureDemo PRIVATE PlantDataModel Qt5::Core)
+
+add_executable(PlantEditDemo
+    src/Tools/PlantEditDemo.cpp
+)
+target_link_libraries(PlantEditDemo PRIVATE PlantEditing PlantDataModel Qt5::Core)
 
 add_executable(LSystemSkeletonDemo
     src/Tools/LSystemSkeletonDemo.cpp
@@ -297,8 +312,10 @@ set(PLANTSIM_PROJECT_TARGETS
     PlantPhysics
     PlantGrowth
     PlantGeometry
+    PlantEditing
     PlantSimulationSystem
     PlantStructureDemo
+    PlantEditDemo
     LSystemSkeletonDemo
     MetaballFieldDemo
     MarchingCubesDemo
