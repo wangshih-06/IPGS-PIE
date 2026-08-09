@@ -79,6 +79,65 @@ Vec3 DynamicBranchingSystem::calculateTropismDirection(const PlantNode& parent, 
     return blendedDir.squaredNorm() > kEpsilon ? blendedDir.normalized() : baseDir;
 }
 
+Vec3 DynamicBranchingSystem::calculateSpatialAvoidanceDirection(
+    const PlantNode& parent, const Vec3& desiredDirection, float proposedLength,
+    const GrowthResourceState& resources, const DynamicBranchingSettings& settings) {
+    const Vec3 fallback = parent.direction.squaredNorm() > kEpsilon
+                              ? parent.direction.normalized()
+                              : Vec3::UnitY();
+    if (!settings.spatialAvoidanceEnabled || proposedLength <= kEpsilon) {
+        return desiredDirection.squaredNorm() > kEpsilon ? desiredDirection.normalized() : fallback;
+    }
+
+    const Vec3 boundsMin = settings.growthBoundsMin.cwiseMin(settings.growthBoundsMax);
+    const Vec3 boundsMax = settings.growthBoundsMin.cwiseMax(settings.growthBoundsMax);
+    const Vec3 extent = boundsMax - boundsMin;
+    if ((extent.array() <= kEpsilon).any()) return fallback;
+
+    Vec3 direction = desiredDirection.squaredNorm() > kEpsilon ? desiredDirection.normalized() : fallback;
+    const float margin = std::max(0.0f, settings.boundaryAvoidanceDistance);
+    const Vec3 safeMin = boundsMin + Vec3::Constant(margin).cwiseMin(extent * 0.45f);
+    const Vec3 safeMax = boundsMax - Vec3::Constant(margin).cwiseMin(extent * 0.45f);
+    const float length = std::max(proposedLength, kEpsilon);
+
+    // A few projection passes guarantee the predicted endpoint remains in the
+    // configurable box, even if tropism initially points straight through a face.
+    for (int iteration = 0; iteration < 3; ++iteration) {
+        const Vec3 endpoint = parent.position + direction * length;
+        Vec3 correction = Vec3::Zero();
+        for (int axis = 0; axis < 3; ++axis) {
+            if (endpoint[axis] < safeMin[axis]) {
+                correction[axis] += (safeMin[axis] - endpoint[axis]) / length;
+            } else if (endpoint[axis] > safeMax[axis]) {
+                correction[axis] -= (endpoint[axis] - safeMax[axis]) / length;
+            } else {
+                const float distanceToMin = endpoint[axis] - boundsMin[axis];
+                const float distanceToMax = boundsMax[axis] - endpoint[axis];
+                if (distanceToMin < margin) correction[axis] += (margin - distanceToMin) / length;
+                if (distanceToMax < margin) correction[axis] -= (margin - distanceToMax) / length;
+            }
+        }
+
+        if (settings.nodeClearance > kEpsilon) {
+            for (const Vec3& occupied : resources.allNodePositions) {
+                if ((occupied - parent.position).squaredNorm() < kEpsilon) continue;
+                const Vec3 delta = endpoint - occupied;
+                const float distance = delta.norm();
+                if (distance > kEpsilon && distance < settings.nodeClearance) {
+                    correction += delta / distance *
+                                  ((settings.nodeClearance - distance) / settings.nodeClearance) *
+                                  std::max(0.0f, settings.nodeAvoidanceWeight);
+                }
+            }
+        }
+        if (correction.squaredNorm() < kEpsilon) break;
+        const Vec3 adjusted = direction + correction * std::max(0.0f, settings.boundaryAvoidanceWeight);
+        if (adjusted.squaredNorm() < kEpsilon) break;
+        direction = adjusted.normalized();
+    }
+    return direction;
+}
+
 void DynamicBranchingSystem::collectNodes(PlantNode* node, std::vector<PlantNode*>* output) {
     if (!node || !output) return;
     output->push_back(node);
@@ -170,9 +229,10 @@ void DynamicBranchingSystem::tryCreateBranch(PlantModel& plant, PlantNode& node,
 
     const int childIndex = static_cast<int>(node.children.size());
     const PlantNodeType childType = (node.type == PlantNodeType::Root) ? PlantNodeType::Root : PlantNodeType::Branch;
-    const Vec3 direction = calculateTropismDirection(node, childIndex, ageBucket, childType, resources.environment);
-    const Vec3 position = node.position + node.direction * std::max(node.length, 0.18f);
+    const Vec3 desiredDirection = calculateTropismDirection(node, childIndex, ageBucket, childType, resources.environment);
     const float length = std::max(0.08f, std::max(node.length, 0.18f) * settings_.branchLengthRatio);
+    const Vec3 direction = calculateSpatialAvoidanceDirection(node, desiredDirection, length, resources, settings_);
+    const Vec3 position = node.position + direction * length;
     const float radius = std::max(0.012f, node.radius * settings_.branchRadiusRatio);
     PlantNode* child = plant.addNode(node.id, position, direction, radius, length, 0.0f,
                                      true, childType, node.generation + 1);
@@ -203,8 +263,10 @@ void DynamicBranchingSystem::trySproutLeaf(PlantModel& plant, PlantNode& node,
     const int ageBucket = static_cast<int>(std::floor(node.age / std::max(settings_.branchInterval, 0.05f)));
     const float probability = clamp01(settings_.leafProbability * (0.55f + 0.45f * resource));
     if (hash01(node.id + existing * 101, ageBucket + 97) > probability) return;
-    const Vec3 direction = calculateTropismDirection(node, existing + 11, ageBucket + 19, PlantNodeType::Branch, resources.environment);
-    const Vec3 position = node.position + direction * std::max(node.length * 0.72f, 0.08f);
+    const float leafOffset = std::max(node.length * 0.72f, 0.08f);
+    const Vec3 desiredDirection = calculateTropismDirection(node, existing + 11, ageBucket + 19, PlantNodeType::Branch, resources.environment);
+    const Vec3 direction = calculateSpatialAvoidanceDirection(node, desiredDirection, leafOffset, resources, settings_);
+    const Vec3 position = node.position + direction * leafOffset;
     Leaf& leaf = plant.addLeaf(node.id, position, direction,
                                Vec2(settings_.leafSize, settings_.leafSize * 0.48f),
                                0.0f, clamp01(0.72f + resource * 0.25f), true);

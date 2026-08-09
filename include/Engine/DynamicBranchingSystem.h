@@ -46,6 +46,15 @@ struct DynamicBranchingSettings {
     float healthRecoveryRate = 0.04f;
     float deathThreshold = 0.05f;
     float growthStopAge = 18.0f;
+
+    // FR-6.6: keep newly grown organs inside the editable cultivation volume.
+    bool spatialAvoidanceEnabled = true;
+    Vec3 growthBoundsMin = Vec3(-6.0f, 0.0f, -6.0f);
+    Vec3 growthBoundsMax = Vec3(6.0f, 9.0f, 6.0f);
+    float boundaryAvoidanceDistance = 0.70f;
+    float boundaryAvoidanceWeight = 0.85f;
+    float nodeClearance = 0.20f;
+    float nodeAvoidanceWeight = 0.35f;
 };
 
 class DynamicBranchingSystem {
@@ -62,6 +71,15 @@ public:
     // 第11周：向光性与向地性方向计算静态辅助方法
     static Vec3 calculateTropismDirection(const PlantNode& parent, int childIndex, int ageBucket,
                                           PlantNodeType nodeType, const EnvironmentParams& env);
+
+    // FR-6.6: steer a prospective organ away from cultivation-volume faces and
+    // nearby skeleton points. The returned vector is always normalized when a
+    // valid preferred direction was supplied.
+    static Vec3 calculateSpatialAvoidanceDirection(const PlantNode& parent,
+                                                   const Vec3& desiredDirection,
+                                                   float proposedLength,
+                                                   const GrowthResourceState& resources,
+                                                   const DynamicBranchingSettings& settings);
 
 private:
     static void collectNodes(PlantNode* node, std::vector<PlantNode*>* output);

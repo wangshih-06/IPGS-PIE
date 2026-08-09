@@ -34,6 +34,24 @@ int main(int argc, char** argv) {
     settings.smoothingYears = 2.0f;
     settings.healthDecayRate = 0.8f;
 
+    // FR-6.6 regression: an outward pointing bud must be steered back into
+    // a deliberately tight cultivation volume.
+    DynamicBranchingSettings avoidanceSettings = settings;
+    avoidanceSettings.growthBoundsMin = Vec3(-1.0f, 0.0f, -1.0f);
+    avoidanceSettings.growthBoundsMax = Vec3(1.0f, 2.0f, 1.0f);
+    avoidanceSettings.boundaryAvoidanceDistance = 0.30f;
+    avoidanceSettings.nodeClearance = 0.0f;
+    PlantNode boundaryParent(Vec3(0.85f, 0.80f, 0.0f), Vec3::UnitY(), 0.1f, 0.4f, 0);
+    GrowthResourceState avoidanceResources;
+    const Vec3 inwardDirection = DynamicBranchingSystem::calculateSpatialAvoidanceDirection(
+        boundaryParent, Vec3::UnitX(), 0.40f, avoidanceResources, avoidanceSettings);
+    const Vec3 predictedEndpoint = boundaryParent.position + inwardDirection * 0.40f;
+    if (predictedEndpoint.x() > avoidanceSettings.growthBoundsMax.x() + 1.0e-4f ||
+        predictedEndpoint.x() < avoidanceSettings.growthBoundsMin.x() - 1.0e-4f ||
+        inwardDirection.x() >= 0.0f) {
+        return 7;
+    }
+
     DynamicBranchingSystem system(settings);
     GrowthEventManager events;
     GrowthResourceState resources;
