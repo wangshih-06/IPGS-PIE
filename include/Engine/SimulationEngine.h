@@ -66,7 +66,7 @@ public slots:
     void resetGrowth(float initialYears = 0.0f);
     void setGrowthSpeed(float speed);                 // 0.1 .. 8.0
     void stepGrowth(float deltaYears);
-    // Restores the nearest recorded full-state frame and leaves playback paused.
+    // Restores the nearest recorded full-state checkpoint and leaves playback paused.
     void seekGrowth(float age);
     void jumpToGrowthStage(const QString& stage);
     void requestGrowthData();
@@ -103,7 +103,7 @@ private:
     void rememberSurfaceState(const GrowthSample& sample);
     GrowthStateReport buildReport(const GrowthSample& sample,
                                   bool includePlantState = false) const;
-    void captureGrowthFrameIfNeeded();
+    void captureGrowthFrameIfNeeded(bool forceSnapshot = false);
     GrowthResourceState resourceState() const;
     void collectAllNodePositions(const PlantNode* node, std::vector<Vec3>* positions) const;
     void rebuildPhysicsModel();

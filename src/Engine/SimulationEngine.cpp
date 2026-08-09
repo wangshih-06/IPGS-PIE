@@ -43,7 +43,7 @@ SimulationEngine::SimulationEngine(QObject* parent)
     metaballField_.rebuildFromPlant(plantModel_, fieldSettings);
     rebuildPhysicsModel();
     initialPlantSnapshot_ = plantModel_.toJson();
-    growthData_.capture(plantModel_);
+    growthData_.capture(plantModel_, true);
 
     connect(&growthClock_, &GrowthClock::tickProduced,
             this, &SimulationEngine::onGrowthTickProduced);
@@ -159,7 +159,7 @@ void SimulationEngine::resetGrowth(float initialYears) {
     rebuildMetaballField();
     rebuildPlantSurface();
     emit plantSurfaceUpdated(plantSurface_);
-    captureGrowthFrameIfNeeded();
+    captureGrowthFrameIfNeeded(true);
 }
 void SimulationEngine::setGrowthSpeed(float speed) {
     growthClock_.setSpeed(speed);
@@ -170,7 +170,7 @@ void SimulationEngine::setGrowthSpeed(float speed) {
 void SimulationEngine::stepGrowth(float deltaYears) { growthClock_.stepOnce(deltaYears); }
 
 void SimulationEngine::seekGrowth(float age) {
-    const GrowthDataFrame* frame = growthData_.nearest(std::max(0.0f, age));
+    const GrowthDataFrame* frame = growthData_.nearestSnapshot(std::max(0.0f, age));
     if (!frame) {
         growthClock_.reset(std::max(0.0f, age));
         return;
@@ -221,10 +221,10 @@ void SimulationEngine::jumpToGrowthStage(const QString& stage) {
 }
 
 void SimulationEngine::requestGrowthData() {
-    // The browser needs the full skeleton snapshots to keep the viewport in
-    // lock-step with the metrics timeline. File downloads can still use the
-    // lightweight metrics-only archive.
-    QJsonObject data = growthData_.toJson();
+    // Charts consume every metric frame, but replay state remains in the engine
+    // and is sent only after an explicit seek. Avoid serializing checkpoint
+    // skeletons merely because a browser connected.
+    QJsonObject data = growthData_.metricsToJson();
     const GrowthAxisThresholds thresholds = growthClock_.timeline().thresholds();
     data.insert("keyStages", QJsonArray{
         QJsonObject{{"key", "seedling"}, {"label", "Seedling"}, {"age", 0.0}},
@@ -310,7 +310,7 @@ void SimulationEngine::onGrowthTickProduced(const GrowthSample& sample) {
         // Continuing from a replayed frame starts a new simulation branch.
         growthData_.truncateAfter(previousAge + 1.0e-4f);
     }
-    captureGrowthFrameIfNeeded();
+    captureGrowthFrameIfNeeded(topologyChanged);
     emit growthUpdated(buildReport(sample));
 }
 
@@ -332,13 +332,13 @@ bool SimulationEngine::saveGrowthMetricsCsv(const QString& filePath, QString* er
     return growthData_.saveCsv(filePath, error);
 }
 
-void SimulationEngine::captureGrowthFrameIfNeeded() {
+void SimulationEngine::captureGrowthFrameIfNeeded(bool forceSnapshot) {
     if (restoringRecordedFrame_) return;
     if (!growthData_.empty()) {
         const GrowthDataFrame* latest = growthData_.at(growthData_.size() - 1);
         if (latest && std::abs(latest->age - plantModel_.age) < 1.0e-4f) return;
     }
-    growthData_.capture(plantModel_);
+    growthData_.capture(plantModel_, forceSnapshot);
 }
 
 void SimulationEngine::onGrowthClockLog(const QString& message) {
@@ -435,7 +435,11 @@ GrowthStateReport SimulationEngine::buildReport(const GrowthSample& sample,
     report.nodeCount   = static_cast<int>(plantModel_.nodeCount());
     report.branchCount = static_cast<int>(plantModel_.branches().size());
     report.leafCount   = static_cast<int>(plantModel_.leaves().size());
-    report.metrics = GrowthDataRecorder::measure(plantModel_);
+    if (const PlantGrowthMetrics* cached = growthData_.cachedMetrics(plantModel_.age)) {
+        report.metrics = *cached;
+    } else {
+        report.metrics = GrowthDataRecorder::measure(plantModel_);
+    }
     report.recordedFrameCount = static_cast<int>(growthData_.size());
     report.recordedEndAge = growthData_.empty() ? 0.0f : growthData_.frames().back().age;
     if (includePlantState) {

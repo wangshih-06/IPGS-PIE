@@ -31,7 +31,7 @@ QJsonObject frameJson(const GrowthDataFrame& frame, bool includePlantState) {
         {"lifeStage", toString(frame.lifeStage)},
         {"metrics", metricsJson(frame.metrics)}
     };
-    if (includePlantState) result.insert("plantState", frame.plantState);
+    if (includePlantState && frame.hasPlantState()) result.insert("plantState", frame.plantState);
     return result;
 }
 
@@ -68,22 +68,38 @@ void measureNodes(const PlantNode* node,
 
 void GrowthDataRecorder::clear() {
     frames_.clear();
+    snapshotIndices_.clear();
+}
+
+void GrowthDataRecorder::rebuildSnapshotIndex() {
+    snapshotIndices_.clear();
+    for (std::size_t index = 0; index < frames_.size(); ++index) {
+        if (frames_[index].hasPlantState()) snapshotIndices_.push_back(index);
+    }
 }
 
 void GrowthDataRecorder::truncateAfter(float age) {
     const auto firstFuture = std::upper_bound(frames_.begin(), frames_.end(), age,
         [](float value, const GrowthDataFrame& frame) { return value < frame.age; });
     frames_.erase(firstFuture, frames_.end());
+    rebuildSnapshotIndex();
 }
 
-const GrowthDataFrame& GrowthDataRecorder::capture(const PlantModel& plant) {
+void GrowthDataRecorder::setSnapshotInterval(std::size_t frameInterval) {
+    snapshotInterval_ = std::max<std::size_t>(1, frameInterval);
+}
+
+const GrowthDataFrame& GrowthDataRecorder::capture(const PlantModel& plant, bool forceSnapshot) {
     GrowthDataFrame frame;
     frame.step = static_cast<int>(frames_.size());
     frame.age = plant.age;
     frame.lifeStage = plant.lifeStage;
     frame.metrics = measure(plant);
-    frame.plantState = plant.toJson();
+    const bool storeSnapshot = forceSnapshot || frames_.empty() ||
+                               (frames_.size() % snapshotInterval_ == 0);
+    if (storeSnapshot) frame.plantState = plant.toJson();
     frames_.push_back(std::move(frame));
+    if (storeSnapshot) snapshotIndices_.push_back(frames_.size() - 1);
     return frames_.back();
 }
 
@@ -98,8 +114,24 @@ const GrowthDataFrame* GrowthDataRecorder::nearest(float age) const {
     return std::abs(after.age - age) < std::abs(age - before.age) ? &after : &before;
 }
 
+const GrowthDataFrame* GrowthDataRecorder::nearestSnapshot(float age) const {
+    if (snapshotIndices_.empty()) return nullptr;
+    const auto it = std::lower_bound(snapshotIndices_.begin(), snapshotIndices_.end(), age,
+        [this](std::size_t index, float value) { return frames_[index].age < value; });
+    if (it == snapshotIndices_.begin()) return &frames_[*it];
+    if (it == snapshotIndices_.end()) return &frames_[snapshotIndices_.back()];
+    const GrowthDataFrame& after = frames_[*it];
+    const GrowthDataFrame& before = frames_[*(it - 1)];
+    return std::abs(after.age - age) < std::abs(age - before.age) ? &after : &before;
+}
+
 const GrowthDataFrame* GrowthDataRecorder::at(std::size_t index) const {
     return index < frames_.size() ? &frames_[index] : nullptr;
+}
+
+const PlantGrowthMetrics* GrowthDataRecorder::cachedMetrics(float age, float tolerance) const {
+    if (frames_.empty() || std::abs(frames_.back().age - age) > std::max(0.0f, tolerance)) return nullptr;
+    return &frames_.back().metrics;
 }
 
 PlantGrowthMetrics GrowthDataRecorder::measure(const PlantModel& plant) {
@@ -131,8 +163,10 @@ QJsonObject GrowthDataRecorder::toJson() const {
     for (const GrowthDataFrame& frame : frames_) frames.append(frameJson(frame, true));
     return QJsonObject{
         {"schema", "plantsim.growth_recording"},
-        {"version", 1},
+        {"version", 2},
         {"frameCount", static_cast<int>(frames_.size())},
+        {"snapshotFrameCount", static_cast<int>(snapshotIndices_.size())},
+        {"snapshotIntervalFrames", static_cast<int>(snapshotInterval_)},
         {"frames", frames}
     };
 }
@@ -142,8 +176,10 @@ QJsonObject GrowthDataRecorder::metricsToJson() const {
     for (const GrowthDataFrame& frame : frames_) frames.append(frameJson(frame, false));
     return QJsonObject{
         {"schema", "plantsim.growth_metrics"},
-        {"version", 1},
+        {"version", 2},
         {"frameCount", static_cast<int>(frames_.size())},
+        {"snapshotFrameCount", static_cast<int>(snapshotIndices_.size())},
+        {"snapshotIntervalFrames", static_cast<int>(snapshotInterval_)},
         {"frames", frames}
     };
 }

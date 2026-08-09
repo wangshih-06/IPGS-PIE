@@ -90,7 +90,7 @@ function runOfflinePlayback(timestamp: number) {
 }
 function startOfflinePlayback() { stopOfflinePlayback(); offlinePlaybackFrame = requestAnimationFrame(runOfflinePlayback) }
 function nearest(target: number) { return findNearest(history.value, target) }
-function localSeek(target: number) { const x = nearest(target); if (!x) return; age.value = x.age; state.value = { ...state.value, ...x, recordedFrameCount: history.value.length, recordedEndAge: history.value.at(-1)?.age ?? x.age } }
+function localSeek(target: number) { const x = nearest(target); if (!x) return; age.value = x.age; const point = { ...x, plantState: x.plantState ?? state.value.plantState }; state.value = { ...state.value, ...point, recordedFrameCount: history.value.length, recordedEndAge: history.value.at(-1)?.age ?? point.age } }
 function append(x: Point) { history.value = appendFrame(history.value, x) }
 async function decodeEnginePayload(payload: unknown): Promise<Record<string, unknown>> {
   if (typeof payload === 'string') return JSON.parse(payload) as Record<string, unknown>
@@ -143,9 +143,10 @@ function connect(manual = true) {
     send({ type: 'request_growth_data' })
     log('已连接 C++ 生长引擎。', 'ok')
   }
-  ws.onmessage = event => {
+  ws.binaryType = 'blob'
+  ws.onmessage = async event => {
     if (socket.value !== ws) return
-    try { receive(JSON.parse(event.data)) } catch { log('收到无法解析的引擎消息。', 'warn') }
+    try { receive(await decodeEnginePayload(event.data)) } catch { log('收到无法解析的引擎消息。', 'warn') }
   }
   ws.onerror = () => { /* close 事件统一处理，避免重复提示。 */ }
   ws.onclose = () => {
