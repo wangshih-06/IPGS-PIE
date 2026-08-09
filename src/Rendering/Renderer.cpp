@@ -17,7 +17,7 @@
 namespace {
 using Vertex = MeshVertex;
 
-Vec3 plantSurfaceColor(const Vec3& position, const Vec3& normal, float heightNormalized) {
+Vec3 plantSurfaceColor(const Vec3&, const Vec3& normal, float heightNormalized) {
     const Vec3 bark(0.42f, 0.27f, 0.16f);
     const Vec3 crown(0.30f, 0.58f, 0.30f);
     Vec3 color = bark * (1.0f - heightNormalized) + crown * heightNormalized;

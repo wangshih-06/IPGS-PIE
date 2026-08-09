@@ -5,6 +5,18 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_AUTOMOC ON)
 
+option(PLANTSIM_ENABLE_AVX2 "Enable AVX2 instructions for local Release builds" ON)
+option(PLANTSIM_ENABLE_IPO "Enable interprocedural optimization for Release builds" ON)
+
+set(PLANTSIM_IPO_SUPPORTED FALSE)
+if(PLANTSIM_ENABLE_IPO)
+    include(CheckIPOSupported)
+    check_ipo_supported(RESULT PLANTSIM_IPO_SUPPORTED OUTPUT PLANTSIM_IPO_ERROR LANGUAGES CXX)
+    if(NOT PLANTSIM_IPO_SUPPORTED)
+        message(WARNING "Release IPO/LTO is unavailable: ${PLANTSIM_IPO_ERROR}")
+    endif()
+endif()
+
 find_package(Qt5 COMPONENTS Core Widgets OpenGL Network WebSockets REQUIRED)
 find_package(OpenGL REQUIRED)
 
@@ -22,7 +34,6 @@ add_library(PlantDataModel STATIC
 )
 target_include_directories(PlantDataModel PUBLIC
     ${CMAKE_SOURCE_DIR}/include
-    ${EIGEN_INCLUDE_DIR}
 )
 target_link_libraries(PlantDataModel PUBLIC Qt5::Core)
 
@@ -36,7 +47,6 @@ add_library(PlantLSystem STATIC
 )
 target_include_directories(PlantLSystem PUBLIC
     ${CMAKE_SOURCE_DIR}/include
-    ${EIGEN_INCLUDE_DIR}
 )
 target_link_libraries(PlantLSystem PUBLIC PlantDataModel Qt5::Core)
 
@@ -46,7 +56,6 @@ add_library(PlantImplicitSurface STATIC
 )
 target_include_directories(PlantImplicitSurface PUBLIC
     ${CMAKE_SOURCE_DIR}/include
-    ${EIGEN_INCLUDE_DIR}
 )
 target_link_libraries(PlantImplicitSurface PUBLIC PlantDataModel Qt5::Core)
 
@@ -58,7 +67,6 @@ add_library(PlantPhysics STATIC
 )
 target_include_directories(PlantPhysics PUBLIC
     ${CMAKE_SOURCE_DIR}/include
-    ${EIGEN_INCLUDE_DIR}
 )
 target_link_libraries(PlantPhysics PUBLIC PlantDataModel Qt5::Core)
 # 第9/11周：生长时间模型 + 环境与向光性/向地性参数
@@ -83,7 +91,6 @@ add_library(PlantGrowth STATIC
 )
 target_include_directories(PlantGrowth PUBLIC
     ${CMAKE_SOURCE_DIR}/include
-    ${EIGEN_INCLUDE_DIR}
 )
 target_link_libraries(PlantGrowth PUBLIC PlantDataModel Qt5::Core)
 
@@ -100,7 +107,6 @@ add_library(PlantGeometry STATIC
 )
 target_include_directories(PlantGeometry PUBLIC
     ${CMAKE_SOURCE_DIR}/include
-    ${EIGEN_INCLUDE_DIR}
 )
 target_link_libraries(PlantGeometry PUBLIC PlantImplicitSurface Qt5::Core)
 
@@ -120,7 +126,6 @@ add_executable(PlantSimulationSystem
 target_include_directories(PlantSimulationSystem PRIVATE
     ${CMAKE_SOURCE_DIR}/include
     ${CMAKE_SOURCE_DIR}/src
-    ${EIGEN_INCLUDE_DIR}
 )
 target_link_libraries(PlantSimulationSystem PRIVATE
     PlantLSystem
@@ -234,22 +239,53 @@ target_link_libraries(TropismDemo PRIVATE
     Qt5::Core
 )
 
-if(MSVC)
-    target_compile_options(PlantDataModel PRIVATE /utf-8)
-    target_compile_options(PlantLSystem PRIVATE /utf-8)
-    target_compile_options(PlantImplicitSurface PRIVATE /utf-8)
-    target_compile_options(PlantPhysics PRIVATE /utf-8)
-    target_compile_options(PlantGrowth PRIVATE /utf-8)
-    target_compile_options(PlantSimulationSystem PRIVATE /utf-8)
-    target_compile_options(PlantStructureDemo PRIVATE /utf-8)
-    target_compile_options(LSystemSkeletonDemo PRIVATE /utf-8)
-    target_compile_options(MetaballFieldDemo PRIVATE /utf-8)
-    target_compile_options(MarchingCubesDemo PRIVATE /utf-8)
-    target_compile_options(PlantModelExportDemo PRIVATE /utf-8)
-    target_compile_options(GrowthTimelineDemo PRIVATE /utf-8)
-    target_compile_options(GrowthSurfaceCheck PRIVATE /utf-8)
-    target_compile_options(DynamicBranchingDemo PRIVATE /utf-8)
-    target_compile_options(PlantPhysicsDemo PRIVATE /utf-8)
-    target_compile_options(TropismDemo PRIVATE /utf-8)
-    target_compile_options(PlantGeometry PRIVATE /utf-8)
-endif()
+# Apply a consistent warning/optimization policy to every project target.
+# Debug keeps its debuggability; Release uses optimized code, optional AVX2, and
+# CMake-managed IPO/LTO when the active compiler/linker supports it.
+function(plantsim_configure_target target)
+    # Eigen is a vendored dependency. Mark it as a system include so /W4 reports
+    # actionable diagnostics from this project rather than template internals.
+    target_include_directories(${target} SYSTEM PUBLIC ${EIGEN_INCLUDE_DIR})
+
+    if(MSVC)
+        target_compile_options(${target} PRIVATE /utf-8 /W4 /permissive- /Zc:__cplusplus)
+        target_compile_options(${target} PRIVATE
+            "$<$<CONFIG:Release>:/O2>"
+            "$<$<CONFIG:Release>:/Ob2>"
+            "$<$<CONFIG:Release>:/Oi>"
+            "$<$<CONFIG:Release>:/Ot>")
+        if(PLANTSIM_ENABLE_AVX2)
+            target_compile_options(${target} PRIVATE "$<$<CONFIG:Release>:/arch:AVX2>")
+        endif()
+    else()
+        target_compile_options(${target} PRIVATE -Wall -Wextra -Wpedantic)
+        target_compile_options(${target} PRIVATE "$<$<CONFIG:Release>:-O3>")
+    endif()
+
+    if(PLANTSIM_IPO_SUPPORTED)
+        set_property(TARGET ${target} PROPERTY INTERPROCEDURAL_OPTIMIZATION_RELEASE TRUE)
+    endif()
+endfunction()
+
+set(PLANTSIM_PROJECT_TARGETS
+    PlantDataModel
+    PlantLSystem
+    PlantImplicitSurface
+    PlantPhysics
+    PlantGrowth
+    PlantGeometry
+    PlantSimulationSystem
+    PlantStructureDemo
+    LSystemSkeletonDemo
+    MetaballFieldDemo
+    MarchingCubesDemo
+    PlantModelExportDemo
+    GrowthTimelineDemo
+    GrowthSurfaceCheck
+    DynamicBranchingDemo
+    PlantPhysicsDemo
+    TropismDemo
+)
+foreach(target IN LISTS PLANTSIM_PROJECT_TARGETS)
+    plantsim_configure_target(${target})
+endforeach()
