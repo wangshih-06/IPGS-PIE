@@ -1,5 +1,6 @@
 ﻿#pragma once
 
+#include <array>
 #include <cstddef>
 #include <limits>
 #include <vector>
@@ -110,8 +111,40 @@ public:
                                float weight);
 
 private:
+    // A source is stored in every ancestor whose child cannot wholly contain its
+    // finite influence bounds. Point queries therefore visit a single root-to-leaf
+    // path while preserving the exact field value (no source approximation).
+    struct SpatialSourceReference {
+        bool isSegment = false;
+        std::size_t sourceIndex = 0;
+        BoundingBox3 influenceBounds;
+    };
+
+    struct SpatialIndexNode {
+        BoundingBox3 bounds;
+        std::array<int, 8> children{};
+        std::vector<std::size_t> sourceReferences;
+        int depth = 0;
+
+        SpatialIndexNode() { children.fill(-1); }
+    };
+
+    void markSpatialIndexDirty();
+    void ensureSpatialIndex() const;
+    void rebuildSpatialIndex() const;
+    void subdivideSpatialIndexNode(std::size_t nodeIndex) const;
+    int childContaining(const BoundingBox3& parentBounds,
+                        const BoundingBox3& sourceBounds) const;
+    int childContaining(const SpatialIndexNode& node, const Vec3& point) const;
+    float evaluateSource(const SpatialSourceReference& reference,
+                         const Vec3& point) const;
+
     std::vector<MetaballNodeSource> nodeSources_;
     std::vector<MetaballSegmentSource> segmentSources_;
     MetaballFieldSettings settings_;
     float isoThreshold_ = 0.5f;
+
+    mutable std::vector<SpatialSourceReference> spatialSourceReferences_;
+    mutable std::vector<SpatialIndexNode> spatialIndexNodes_;
+    mutable bool spatialIndexDirty_ = true;
 };

@@ -4,6 +4,7 @@
 #include <cmath>
 #include <functional>
 #include <numeric>
+#include <utility>
 
 #include "Algorithm/PlantNode.h"
 #include "Plant/PlantModel.h"
@@ -24,6 +25,21 @@ float segmentParameter(const Vec3& point, const Vec3& start, const Vec3& end) {
         return 0.0f;
     }
     return clamp01((point - start).dot(segment) / squaredLength);
+}
+
+BoundingBox3 sourceBounds(const MetaballNodeSource& source) {
+    BoundingBox3 result;
+    result.expand(source.center, source.influenceRadius);
+    return result;
+}
+
+BoundingBox3 sourceBounds(const MetaballSegmentSource& source) {
+    BoundingBox3 result;
+    const float radius = std::max(source.startInfluenceRadius,
+                                  source.endInfluenceRadius);
+    result.expand(source.start, radius);
+    result.expand(source.end, radius);
+    return result;
 }
 
 std::size_t safeProduct(const Eigen::Vector3i& dimensions) {
@@ -125,6 +141,7 @@ Vec3 ScalarFieldGrid::position(int x, int y, int z) const {
 void MetaballField::clear() {
     nodeSources_.clear();
     segmentSources_.clear();
+    markSpatialIndexDirty();
 }
 
 void MetaballField::setIsoThreshold(float threshold) {
@@ -143,6 +160,7 @@ void MetaballField::addNodeSource(const MetaballNodeSource& source) {
     safe.weight = std::max(0.0f, source.weight);
     if (safe.center.allFinite() && safe.weight > 0.0f) {
         nodeSources_.push_back(safe);
+        markSpatialIndexDirty();
     }
 }
 
@@ -155,6 +173,7 @@ void MetaballField::addSegmentSource(const MetaballSegmentSource& source) {
     safe.weight = std::max(0.0f, source.weight);
     if (safe.start.allFinite() && safe.end.allFinite() && safe.weight > 0.0f) {
         segmentSources_.push_back(safe);
+        markSpatialIndexDirty();
     }
 }
 
@@ -172,6 +191,7 @@ void MetaballField::removeSourcesOwnedBy(int nodeId) {
                                   source.childNodeId == nodeId;
                        }),
         segmentSources_.end());
+    markSpatialIndexDirty();
 }
 
 void MetaballField::rebuildFromPlant(const PlantModel& model,
@@ -247,23 +267,171 @@ float MetaballField::evaluate(const Vec3& point) const {
         return 0.0f;
     }
 
-    float value = 0.0f;
-    for (const MetaballNodeSource& source : nodeSources_) {
-        value += compactKernel((point - source.center).squaredNorm(),
-                               source.influenceRadius,
-                               source.weight);
+    ensureSpatialIndex();
+    if (spatialIndexNodes_.empty()) {
+        return 0.0f;
     }
 
-    for (const MetaballSegmentSource& source : segmentSources_) {
-        const float t = segmentParameter(point, source.start, source.end);
-        const Vec3 closestPoint = source.start + (source.end - source.start) * t;
-        const float radius = source.startInfluenceRadius +
-                             (source.endInfluenceRadius - source.startInfluenceRadius) * t;
-        value += compactKernel((point - closestPoint).squaredNorm(),
-                               radius,
-                               source.weight);
+    float value = 0.0f;
+    int nodeIndex = 0;
+    while (nodeIndex >= 0) {
+        const SpatialIndexNode& node = spatialIndexNodes_[static_cast<std::size_t>(nodeIndex)];
+        for (const std::size_t referenceIndex : node.sourceReferences) {
+            value += evaluateSource(spatialSourceReferences_[referenceIndex], point);
+        }
+        nodeIndex = childContaining(node, point);
     }
     return value;
+}
+
+void MetaballField::markSpatialIndexDirty() {
+    spatialIndexDirty_ = true;
+}
+
+void MetaballField::ensureSpatialIndex() const {
+    if (spatialIndexDirty_) {
+        rebuildSpatialIndex();
+    }
+}
+
+void MetaballField::rebuildSpatialIndex() const {
+    spatialSourceReferences_.clear();
+    spatialIndexNodes_.clear();
+    spatialIndexDirty_ = false;
+
+    if (nodeSources_.empty() && segmentSources_.empty()) {
+        return;
+    }
+
+    spatialSourceReferences_.reserve(nodeSources_.size() + segmentSources_.size());
+    for (std::size_t index = 0; index < nodeSources_.size(); ++index) {
+        spatialSourceReferences_.push_back({false, index, sourceBounds(nodeSources_[index])});
+    }
+    for (std::size_t index = 0; index < segmentSources_.size(); ++index) {
+        spatialSourceReferences_.push_back({true, index, sourceBounds(segmentSources_[index])});
+    }
+
+    SpatialIndexNode root;
+    root.bounds = bounds();
+    root.sourceReferences.resize(spatialSourceReferences_.size());
+    std::iota(root.sourceReferences.begin(), root.sourceReferences.end(), std::size_t{0});
+    spatialIndexNodes_.push_back(std::move(root));
+    subdivideSpatialIndexNode(0);
+}
+
+void MetaballField::subdivideSpatialIndexNode(std::size_t nodeIndex) const {
+    constexpr std::size_t kLeafCapacity = 12;
+    constexpr int kMaximumDepth = 10;
+
+    const SpatialIndexNode current = spatialIndexNodes_[nodeIndex];
+    if (current.depth >= kMaximumDepth || current.sourceReferences.size() <= kLeafCapacity) {
+        return;
+    }
+
+    std::array<std::vector<std::size_t>, 8> childReferences;
+    std::vector<std::size_t> retainedReferences;
+    retainedReferences.reserve(current.sourceReferences.size());
+    for (const std::size_t referenceIndex : current.sourceReferences) {
+        const int child = childContaining(current.bounds,
+                                         spatialSourceReferences_[referenceIndex].influenceBounds);
+        if (child < 0) {
+            retainedReferences.push_back(referenceIndex);
+        } else {
+            childReferences[static_cast<std::size_t>(child)].push_back(referenceIndex);
+        }
+    }
+
+    std::size_t movedCount = 0;
+    for (const auto& references : childReferences) {
+        movedCount += references.size();
+    }
+    if (movedCount == 0) {
+        return;
+    }
+
+    spatialIndexNodes_[nodeIndex].sourceReferences = std::move(retainedReferences);
+    const Vec3 midpoint = current.bounds.center();
+    for (int child = 0; child < 8; ++child) {
+        if (childReferences[static_cast<std::size_t>(child)].empty()) {
+            continue;
+        }
+
+        SpatialIndexNode childNode;
+        childNode.depth = current.depth + 1;
+        childNode.sourceReferences = std::move(childReferences[static_cast<std::size_t>(child)]);
+        childNode.bounds.minimum = Vec3(
+            (child & 1) ? midpoint.x() : current.bounds.minimum.x(),
+            (child & 2) ? midpoint.y() : current.bounds.minimum.y(),
+            (child & 4) ? midpoint.z() : current.bounds.minimum.z());
+        childNode.bounds.maximum = Vec3(
+            (child & 1) ? current.bounds.maximum.x() : midpoint.x(),
+            (child & 2) ? current.bounds.maximum.y() : midpoint.y(),
+            (child & 4) ? current.bounds.maximum.z() : midpoint.z());
+
+        const int childIndex = static_cast<int>(spatialIndexNodes_.size());
+        spatialIndexNodes_.push_back(std::move(childNode));
+        spatialIndexNodes_[nodeIndex].children[static_cast<std::size_t>(child)] = childIndex;
+    }
+
+    const std::array<int, 8> children = spatialIndexNodes_[nodeIndex].children;
+    for (const int childIndex : children) {
+        if (childIndex >= 0) {
+            subdivideSpatialIndexNode(static_cast<std::size_t>(childIndex));
+        }
+    }
+}
+
+int MetaballField::childContaining(const BoundingBox3& parentBounds,
+                                   const BoundingBox3& sourceBounds) const {
+    if (!parentBounds.isValid() || !sourceBounds.isValid()) {
+        return -1;
+    }
+
+    const Vec3 midpoint = parentBounds.center();
+    int child = 0;
+    for (int axis = 0; axis < 3; ++axis) {
+        if (sourceBounds.maximum[axis] <= midpoint[axis]) {
+            continue;
+        }
+        if (sourceBounds.minimum[axis] >= midpoint[axis]) {
+            child |= (1 << axis);
+            continue;
+        }
+        return -1;
+    }
+    return child;
+}
+
+int MetaballField::childContaining(const SpatialIndexNode& node, const Vec3& point) const {
+    if (!node.bounds.isValid() ||
+        (point.array() < node.bounds.minimum.array()).any() ||
+        (point.array() > node.bounds.maximum.array()).any()) {
+        return -1;
+    }
+
+    const Vec3 midpoint = node.bounds.center();
+    int child = 0;
+    if (point.x() > midpoint.x()) child |= 1;
+    if (point.y() > midpoint.y()) child |= 2;
+    if (point.z() > midpoint.z()) child |= 4;
+    return node.children[static_cast<std::size_t>(child)];
+}
+
+float MetaballField::evaluateSource(const SpatialSourceReference& reference,
+                                    const Vec3& point) const {
+    if (!reference.isSegment) {
+        const MetaballNodeSource& source = nodeSources_[reference.sourceIndex];
+        return compactKernel((point - source.center).squaredNorm(),
+                             source.influenceRadius,
+                             source.weight);
+    }
+
+    const MetaballSegmentSource& source = segmentSources_[reference.sourceIndex];
+    const float t = segmentParameter(point, source.start, source.end);
+    const Vec3 closestPoint = source.start + (source.end - source.start) * t;
+    const float radius = source.startInfluenceRadius +
+                         (source.endInfluenceRadius - source.startInfluenceRadius) * t;
+    return compactKernel((point - closestPoint).squaredNorm(), radius, source.weight);
 }
 
 float MetaballField::evaluateSigned(const Vec3& point) const {
