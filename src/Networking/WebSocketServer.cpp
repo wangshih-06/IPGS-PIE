@@ -46,7 +46,11 @@ float clampLight(float value) {
 
 WebSocketServer::WebSocketServer(QObject* parent)
     : QObject(parent), server_(new QTcpServer(this)) {
+    growthBroadcastTimer_.setInterval(66); // 15 Hz: merge high-frequency growth ticks.
+    growthBroadcastTimer_.setSingleShot(true);
     connect(server_, &QTcpServer::newConnection, this, &WebSocketServer::onNewConnection);
+    connect(&growthBroadcastTimer_, &QTimer::timeout,
+            this, &WebSocketServer::flushPendingGrowthState);
 }
 
 bool WebSocketServer::listen(quint16 port) {
@@ -295,8 +299,35 @@ void WebSocketServer::broadcastTropismState(float photoWeight, float graviWeight
 }
 
 void WebSocketServer::broadcastGrowthState(const GrowthStateReport& report) {
+    // Seek/stage restoration carries an explicit full snapshot and must not wait
+    // for the metrics cadence. Ordinary ticks replace the pending report so a
+    // slow client only receives the newest lightweight state at 15 Hz.
+    if (!report.plantState.isEmpty()) {
+        hasPendingGrowthReport_ = false;
+        growthBroadcastTimer_.stop();
+        broadcastGrowthStateNow(report);
+        return;
+    }
+
+    pendingGrowthReport_ = report;
+    hasPendingGrowthReport_ = true;
+    if (!growthBroadcastTimer_.isActive()) {
+        growthBroadcastTimer_.start();
+    }
+}
+
+void WebSocketServer::flushPendingGrowthState() {
+    if (!hasPendingGrowthReport_) {
+        growthBroadcastTimer_.stop();
+        return;
+    }
+    broadcastGrowthStateNow(pendingGrowthReport_);
+    hasPendingGrowthReport_ = false;
+}
+
+void WebSocketServer::broadcastGrowthStateNow(const GrowthStateReport& report) {
     const PlantGrowthMetrics& metrics = report.metrics;
-    const QJsonObject state{
+    QJsonObject state{
         {"type", "growth_state"},
         {"age", static_cast<double>(report.age)},
         {"lifeStage", toString(report.lifeStage)},
@@ -309,9 +340,11 @@ void WebSocketServer::broadcastGrowthState(const GrowthStateReport& report) {
         {"totalBranchLength", static_cast<double>(metrics.totalBranchLength)},
         {"canopyWidth", static_cast<double>(metrics.canopyWidth)},
         {"recordedFrameCount", report.recordedFrameCount},
-        {"recordedEndAge", static_cast<double>(report.recordedEndAge)},
-        {"plantState", report.plantState}
+        {"recordedEndAge", static_cast<double>(report.recordedEndAge)}
     };
+    if (!report.plantState.isEmpty()) {
+        state.insert("plantState", report.plantState);
+    }
     const QByteArray payload = QJsonDocument(state).toJson(QJsonDocument::Compact);
     for (auto it = clients_.begin(); it != clients_.end(); ++it) {
         if (it.value().handshaken) sendText(it.key(), payload);

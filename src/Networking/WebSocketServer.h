@@ -8,6 +8,7 @@
 #include <QByteArray>
 #include <QHash>
 #include <QPointer>
+#include <QTimer>
 
 #include "Engine/GrowthStateReport.h"
 
@@ -49,6 +50,7 @@ private slots:
     void onNewConnection();
     void onReadyRead();
     void onDisconnected();
+    void flushPendingGrowthState();
 
 private:
     struct ClientState {
@@ -61,9 +63,13 @@ private:
     void processTextMessage(QTcpSocket* socket, const QByteArray& payload);
     void sendText(QTcpSocket* socket, const QByteArray& payload);
     void sendPong(QTcpSocket* socket, const QByteArray& payload);
+    void broadcastGrowthStateNow(const GrowthStateReport& report);
     void removeClient(QTcpSocket* socket);
 
     QTcpServer* server_ = nullptr;
     QHash<QTcpSocket*, ClientState> clients_;
+    QTimer growthBroadcastTimer_;
+    GrowthStateReport pendingGrowthReport_;
+    bool hasPendingGrowthReport_ = false;
     quint16 port_ = 0;
 };

@@ -194,7 +194,7 @@ void SimulationEngine::seekGrowth(float age) {
     rebuildPlantSurface(0.24f);
     restoringRecordedFrame_ = false;
     emit plantSurfaceUpdated(plantSurface_);
-    emit growthUpdated(buildReport(growthClock_.timeline().sample(frame->age)));
+    emit growthUpdated(buildReport(growthClock_.timeline().sample(frame->age), true));
     emit growthLogMessage(QStringLiteral("Replay seek -> %1y").arg(frame->age, 0, 'f', 2));
 }
 
@@ -421,7 +421,8 @@ GrowthResourceState SimulationEngine::resourceState() const {
     return state;
 }
 
-GrowthStateReport SimulationEngine::buildReport(const GrowthSample& sample) const {
+GrowthStateReport SimulationEngine::buildReport(const GrowthSample& sample,
+                                                bool includePlantState) const {
     GrowthStateReport report;
     report.age         = sample.age;
     report.lifeStage   = sample.lifeStage;
@@ -437,6 +438,8 @@ GrowthStateReport SimulationEngine::buildReport(const GrowthSample& sample) cons
     report.metrics = GrowthDataRecorder::measure(plantModel_);
     report.recordedFrameCount = static_cast<int>(growthData_.size());
     report.recordedEndAge = growthData_.empty() ? 0.0f : growthData_.frames().back().age;
-    report.plantState = plantModel_.toJson();
+    if (includePlantState) {
+        report.plantState = plantModel_.toJson();
+    }
     return report;
 }

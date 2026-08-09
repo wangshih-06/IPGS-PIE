@@ -101,7 +101,8 @@ private:
                                    bool physicsChanged) const;
     float adaptiveSurfaceSpacing(float requestedSpacing) const;
     void rememberSurfaceState(const GrowthSample& sample);
-    GrowthStateReport buildReport(const GrowthSample& sample) const;
+    GrowthStateReport buildReport(const GrowthSample& sample,
+                                  bool includePlantState = false) const;
     void captureGrowthFrameIfNeeded();
     GrowthResourceState resourceState() const;
     void collectAllNodePositions(const PlantNode* node, std::vector<Vec3>* positions) const;
