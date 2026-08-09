@@ -1,19 +1,18 @@
 // ============================================================================
-// WebSocketServer - small Qt Network based RFC 6455 text server
-// 第11周：增加向光性/向地性与多光源控制 WebSocket 信号
+// WebSocketServer - Qt WebSockets transport for the local PlantSim control API
 // ============================================================================
 #pragma once
 
 #include <QObject>
 #include <QByteArray>
+#include <QDateTime>
 #include <QHash>
-#include <QPointer>
 #include <QTimer>
 
 #include "Engine/GrowthStateReport.h"
 
-class QTcpServer;
-class QTcpSocket;
+class QWebSocket;
+class QWebSocketServer;
 
 class WebSocketServer : public QObject {
     Q_OBJECT
@@ -48,27 +47,27 @@ public slots:
 
 private slots:
     void onNewConnection();
-    void onReadyRead();
+    void onTextMessageReceived(const QString& message);
+    void onPong(quint64 elapsedTime, const QByteArray& payload);
     void onDisconnected();
     void flushPendingGrowthState();
+    void sendHeartbeat();
 
 private:
     struct ClientState {
-        QByteArray buffer;
-        bool handshaken = false;
+        QDateTime lastPongUtc;
     };
 
-    void handleHttpHandshake(QTcpSocket* socket, ClientState& state);
-    void processFrames(QTcpSocket* socket, ClientState& state);
-    void processTextMessage(QTcpSocket* socket, const QByteArray& payload);
-    void sendText(QTcpSocket* socket, const QByteArray& payload);
-    void sendPong(QTcpSocket* socket, const QByteArray& payload);
+    void processTextMessage(QWebSocket* socket, const QByteArray& payload);
+    void sendJson(QWebSocket* socket, const QByteArray& payload);
+    void broadcastJson(const QByteArray& payload);
     void broadcastGrowthStateNow(const GrowthStateReport& report);
-    void removeClient(QTcpSocket* socket);
+    void removeClient(QWebSocket* socket);
 
-    QTcpServer* server_ = nullptr;
-    QHash<QTcpSocket*, ClientState> clients_;
+    QWebSocketServer* server_ = nullptr;
+    QHash<QWebSocket*, ClientState> clients_;
     QTimer growthBroadcastTimer_;
+    QTimer heartbeatTimer_;
     GrowthStateReport pendingGrowthReport_;
     bool hasPendingGrowthReport_ = false;
     quint16 port_ = 0;

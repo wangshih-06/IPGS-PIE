@@ -92,6 +92,18 @@ function startOfflinePlayback() { stopOfflinePlayback(); offlinePlaybackFrame = 
 function nearest(target: number) { return findNearest(history.value, target) }
 function localSeek(target: number) { const x = nearest(target); if (!x) return; age.value = x.age; state.value = { ...state.value, ...x, recordedFrameCount: history.value.length, recordedEndAge: history.value.at(-1)?.age ?? x.age } }
 function append(x: Point) { history.value = appendFrame(history.value, x) }
+async function decodeEnginePayload(payload: unknown): Promise<Record<string, unknown>> {
+  if (typeof payload === 'string') return JSON.parse(payload) as Record<string, unknown>
+  if (!(payload instanceof Blob)) throw new Error('Unsupported WebSocket payload')
+  const bytes = new Uint8Array(await payload.arrayBuffer())
+  const marker = new TextDecoder().decode(bytes.slice(0, 4))
+  if (marker !== 'PSZ1') throw new Error('Unknown binary WebSocket payload')
+  if (typeof DecompressionStream === 'undefined') throw new Error('Browser does not support compressed engine messages')
+  // qCompress stores a four-byte original-size prefix before its zlib stream.
+  const zlibPayload = bytes.slice(8)
+  const decompressed = await new Response(new Blob([zlibPayload]).stream().pipeThrough(new DecompressionStream('deflate'))).arrayBuffer()
+  return JSON.parse(new TextDecoder().decode(decompressed)) as Record<string, unknown>
+}
 function receive(payload: Record<string, unknown>) { if (payload.type === 'error') { log(`引擎错误：${String(payload.message ?? '未知错误')}`, 'warn'); clearConfirmation(); return } if (payload.type === 'environment_updated') { light.value = asNumber(payload.lightIntensity, light.value); return } if (payload.type === 'growth_data' && Array.isArray(payload.frames)) { const frames = normalizeFrames(payload.frames.map((x, index) => toPoint(x, index)).filter((x): x is Point => !!x)); if (frames.length) { history.value = frames; stages.value = parseStages(payload.keyStages, frames); localSeek(age.value); log(`已载入 ${frames.length} 帧生长记录。`, 'ok') }; return } if (payload.type === 'growth_state') { const x = toPoint(payload); if (!x) return; const point = { ...x, plantState: x.plantState ?? state.value.plantState }; state.value = { ...point, speed: asNumber(payload.speed, 1), mode: asNumber(payload.mode), nodeCount: asNumber(payload.nodeCount), recordedFrameCount: asNumber(payload.recordedFrameCount, history.value.length), recordedEndAge: asNumber(payload.recordedEndAge, point.age) }; age.value = point.age; speed.value = state.value.speed; playing.value = state.value.mode === 1; append(point); clearConfirmation() } }
 function clearReconnectTimer() { if (reconnectTimer) window.clearTimeout(reconnectTimer); reconnectTimer = 0 }
 function scheduleReconnect(reason: string) {
