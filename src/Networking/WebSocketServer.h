@@ -4,9 +4,12 @@
 #pragma once
 
 #include <QObject>
+
+#include <functional>
 #include <QByteArray>
 #include <QDateTime>
 #include <QHash>
+#include <QJsonObject>
 #include <QTimer>
 
 #include "Engine/GrowthStateReport.h"
@@ -58,7 +61,11 @@ private:
         QDateTime lastPongUtc;
     };
 
+    using CommandHandler = std::function<void(QWebSocket*, const QJsonObject&)>;
+
+    void initializeCommandHandlers();
     void processTextMessage(QWebSocket* socket, const QByteArray& payload);
+    void sendError(QWebSocket* socket, const QString& code, const QString& message);
     void sendJson(QWebSocket* socket, const QByteArray& payload);
     void broadcastJson(const QByteArray& payload);
     void broadcastGrowthStateNow(const GrowthStateReport& report);
@@ -66,6 +73,7 @@ private:
 
     QWebSocketServer* server_ = nullptr;
     QHash<QWebSocket*, ClientState> clients_;
+    QHash<QString, CommandHandler> commandHandlers_;
     QTimer growthBroadcastTimer_;
     QTimer heartbeatTimer_;
     GrowthStateReport pendingGrowthReport_;

@@ -13,6 +13,7 @@
 #include <QWebSocketServer>
 
 namespace {
+constexpr int kProtocolVersion = 1;
 constexpr int kGrowthBroadcastIntervalMs = 66;
 constexpr int kHeartbeatIntervalMs = 15000;
 constexpr int kHeartbeatTimeoutMs = 45000;
@@ -38,6 +39,7 @@ WebSocketServer::WebSocketServer(QObject* parent)
             this, &WebSocketServer::flushPendingGrowthState);
     connect(&heartbeatTimer_, &QTimer::timeout,
             this, &WebSocketServer::sendHeartbeat);
+    initializeCommandHandlers();
 }
 
 bool WebSocketServer::listen(quint16 port) {
@@ -86,73 +88,84 @@ void WebSocketServer::onPong(quint64, const QByteArray&) {
     }
 }
 
-void WebSocketServer::processTextMessage(QWebSocket* socket, const QByteArray& payload) {
-    QJsonParseError parseError{};
-    const QJsonDocument document = QJsonDocument::fromJson(payload, &parseError);
-    if (parseError.error != QJsonParseError::NoError || !document.isObject()) {
-        sendJson(socket, QJsonDocument(QJsonObject{
-            {"type", "error"}, {"message", "Invalid JSON command"}
-        }).toJson(QJsonDocument::Compact));
-        return;
-    }
-
-    const QJsonObject command = document.object();
-    const QString type = command.value("type").toString();
-    if (type == QStringLiteral("adjust_light")) {
-        const float requested = static_cast<float>(command.value("value").toDouble(0.0));
-        emit lightIntensityRequested(clampLight(requested));
-        return;
-    }
-    if (type == QStringLiteral("set_phototropism")) {
+void WebSocketServer::initializeCommandHandlers() {
+    commandHandlers_.insert(QStringLiteral("adjust_light"), [this](QWebSocket*, const QJsonObject& command) {
+        emit lightIntensityRequested(clampLight(static_cast<float>(command.value("value").toDouble(0.0))));
+    });
+    commandHandlers_.insert(QStringLiteral("set_phototropism"), [this](QWebSocket*, const QJsonObject& command) {
         emit phototropismRequested(qBound(0.0f, static_cast<float>(command.value("value").toDouble(1.0)), 2.0f));
-        return;
-    }
-    if (type == QStringLiteral("set_gravitropism")) {
+    });
+    commandHandlers_.insert(QStringLiteral("set_gravitropism"), [this](QWebSocket*, const QJsonObject& command) {
         emit gravitropismRequested(qBound(0.0f, static_cast<float>(command.value("value").toDouble(1.0)), 2.0f));
-        return;
-    }
-    if (type == QStringLiteral("set_light_position")) {
+    });
+    commandHandlers_.insert(QStringLiteral("set_light_position"), [this](QWebSocket*, const QJsonObject& command) {
         emit lightPositionRequested(command.value("id").toInt(0),
                                     static_cast<float>(command.value("x").toDouble(0.0)),
                                     static_cast<float>(command.value("y").toDouble(0.0)),
                                     static_cast<float>(command.value("z").toDouble(0.0)));
-        return;
-    }
-    if (type == QStringLiteral("growth_start")) {
-        emit growthStartRequested();
-        return;
-    }
-    if (type == QStringLiteral("growth_pause")) {
-        emit growthPauseRequested();
-        return;
-    }
-    if (type == QStringLiteral("growth_resume")) {
-        emit growthResumeRequested();
-        return;
-    }
-    if (type == QStringLiteral("growth_reset")) {
-        emit growthResetRequested();
-        return;
-    }
-    if (type == QStringLiteral("growth_seek")) {
+    });
+    commandHandlers_.insert(QStringLiteral("growth_start"), [this](QWebSocket*, const QJsonObject&) { emit growthStartRequested(); });
+    commandHandlers_.insert(QStringLiteral("growth_pause"), [this](QWebSocket*, const QJsonObject&) { emit growthPauseRequested(); });
+    commandHandlers_.insert(QStringLiteral("growth_resume"), [this](QWebSocket*, const QJsonObject&) { emit growthResumeRequested(); });
+    commandHandlers_.insert(QStringLiteral("growth_reset"), [this](QWebSocket*, const QJsonObject&) { emit growthResetRequested(); });
+    commandHandlers_.insert(QStringLiteral("growth_seek"), [this](QWebSocket*, const QJsonObject& command) {
         emit growthSeekRequested(std::max(0.0f, static_cast<float>(command.value("age").toDouble(0.0))));
-        return;
-    }
-    if (type == QStringLiteral("growth_stage")) {
+    });
+    commandHandlers_.insert(QStringLiteral("growth_stage"), [this](QWebSocket*, const QJsonObject& command) {
         emit growthStageRequested(command.value("stage").toString());
-        return;
-    }
-    if (type == QStringLiteral("growth_speed")) {
+    });
+    commandHandlers_.insert(QStringLiteral("growth_speed"), [this](QWebSocket*, const QJsonObject& command) {
         emit growthSpeedRequested(qBound(0.1f, static_cast<float>(command.value("speed").toDouble(1.0)), 8.0f));
-        return;
-    }
-    if (type == QStringLiteral("request_growth_data")) {
+    });
+    commandHandlers_.insert(QStringLiteral("request_growth_data"), [this](QWebSocket*, const QJsonObject&) {
         emit growthDataRequested();
+    });
+    commandHandlers_.insert(QStringLiteral("ping"), [this](QWebSocket* socket, const QJsonObject&) {
+        sendJson(socket, QJsonDocument(QJsonObject{{"type", "pong"}, {"protocolVersion", kProtocolVersion}})
+                             .toJson(QJsonDocument::Compact));
+    });
+}
+
+void WebSocketServer::sendError(QWebSocket* socket, const QString& code, const QString& message) {
+    sendJson(socket, QJsonDocument(QJsonObject{
+        {"type", "error"}, {"protocolVersion", kProtocolVersion},
+        {"code", code}, {"message", message}
+    }).toJson(QJsonDocument::Compact));
+}
+
+void WebSocketServer::processTextMessage(QWebSocket* socket, const QByteArray& payload) {
+    QJsonParseError parseError{};
+    const QJsonDocument document = QJsonDocument::fromJson(payload, &parseError);
+    if (parseError.error != QJsonParseError::NoError || !document.isObject()) {
+        sendError(socket, QStringLiteral("invalid_json"), QStringLiteral("Command must be a JSON object."));
         return;
     }
-    if (type == QStringLiteral("ping")) {
-        sendJson(socket, QByteArray("{\"type\":\"pong\"}"));
+
+    const QJsonObject command = document.object();
+    const QJsonValue protocolValue = command.value("protocolVersion");
+    if (!protocolValue.isDouble() || protocolValue.toDouble() != static_cast<double>(protocolValue.toInt())) {
+        sendError(socket, QStringLiteral("invalid_protocol_version"),
+                  QStringLiteral("protocolVersion must be an integer."));
+        return;
     }
+    if (protocolValue.toInt() != kProtocolVersion) {
+        sendError(socket, QStringLiteral("unsupported_protocol_version"),
+                  QStringLiteral("This server supports protocolVersion %1.").arg(kProtocolVersion));
+        return;
+    }
+
+    const QString type = command.value("type").toString();
+    if (type.isEmpty()) {
+        sendError(socket, QStringLiteral("invalid_command"), QStringLiteral("Command type is required."));
+        return;
+    }
+    const auto handler = commandHandlers_.constFind(type);
+    if (handler == commandHandlers_.cend()) {
+        sendError(socket, QStringLiteral("unknown_command"),
+                  QStringLiteral("Unsupported command type: %1").arg(type));
+        return;
+    }
+    (*handler)(socket, command);
 }
 
 void WebSocketServer::sendJson(QWebSocket* socket, const QByteArray& payload) {
@@ -180,6 +193,7 @@ void WebSocketServer::broadcastJson(const QByteArray& payload) {
 void WebSocketServer::broadcastState(float lightIntensity) {
     const QJsonObject state{
         {"type", "environment_updated"},
+        {"protocolVersion", kProtocolVersion},
         {"message", "Environment Updated"},
         {"lightIntensity", static_cast<double>(lightIntensity)}
     };
@@ -189,6 +203,7 @@ void WebSocketServer::broadcastState(float lightIntensity) {
 void WebSocketServer::broadcastTropismState(float photoWeight, float graviWeight) {
     const QJsonObject state{
         {"type", "tropism_updated"},
+        {"protocolVersion", kProtocolVersion},
         {"phototropismWeight", static_cast<double>(photoWeight)},
         {"gravitropismWeight", static_cast<double>(graviWeight)}
     };
@@ -222,6 +237,7 @@ void WebSocketServer::broadcastGrowthStateNow(const GrowthStateReport& report) {
     const PlantGrowthMetrics& metrics = report.metrics;
     QJsonObject state{
         {"type", "growth_state"},
+        {"protocolVersion", kProtocolVersion},
         {"age", static_cast<double>(report.age)},
         {"lifeStage", toString(report.lifeStage)},
         {"mode", report.mode},
@@ -244,6 +260,7 @@ void WebSocketServer::broadcastGrowthStateNow(const GrowthStateReport& report) {
 void WebSocketServer::broadcastGrowthData(const QJsonObject& data) {
     QJsonObject payloadObject = data;
     payloadObject.insert("type", "growth_data");
+    payloadObject.insert("protocolVersion", kProtocolVersion);
     broadcastJson(QJsonDocument(payloadObject).toJson(QJsonDocument::Compact));
 }
 

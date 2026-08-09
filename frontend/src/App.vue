@@ -63,9 +63,10 @@ let confirmationTimer = 0
 let reconnectTimer = 0
 let allowReconnect = true
 const maxReconnectAttempts = 5
+const protocolVersion = 1
 
 function log(text: string, tone: Log['tone'] = 'muted') { logs.value.unshift({ time: new Intl.DateTimeFormat('zh-CN', { hour: '2-digit', minute: '2-digit', second: '2-digit' }).format(new Date()), text, tone }); logs.value = logs.value.slice(0, 6) }
-function send(command: Record<string, unknown>) { try { if (socket.value?.readyState !== WebSocket.OPEN) return false; socket.value.send(JSON.stringify(command)); return true } catch { return false } }
+function send(command: Record<string, unknown>) { try { if (socket.value?.readyState !== WebSocket.OPEN) return false; socket.value.send(JSON.stringify({ ...command, protocolVersion })); return true } catch { return false } }
 function clearConfirmation() { if (confirmationTimer) window.clearTimeout(confirmationTimer); confirmationTimer = 0; pendingAction.value = null }
 function awaitConfirmation(action: string) {
   if (confirmationTimer) window.clearTimeout(confirmationTimer)
