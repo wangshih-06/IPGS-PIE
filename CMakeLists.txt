@@ -5,6 +5,8 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_AUTOMOC ON)
 
+include(CTest)
+
 option(PLANTSIM_ENABLE_AVX2 "Enable AVX2 instructions for local Release builds" ON)
 option(PLANTSIM_ENABLE_IPO "Enable interprocedural optimization for Release builds" ON)
 
@@ -239,6 +241,27 @@ target_link_libraries(TropismDemo PRIVATE
     Qt5::Core
 )
 
+if(BUILD_TESTING)
+    add_executable(PlantNumericalRegression
+        src/Tests/PlantNumericalRegression.cpp
+    )
+    target_link_libraries(PlantNumericalRegression PRIVATE
+        PlantDataModel
+        PlantImplicitSurface
+        PlantGeometry
+        PlantGrowth
+        Qt5::Core
+    )
+
+    add_test(NAME PlantNumericalRegression COMMAND PlantNumericalRegression)
+    add_test(NAME PlantPhysicsRegression COMMAND PlantPhysicsDemo)
+    add_test(NAME DynamicBranchingRegression COMMAND DynamicBranchingDemo)
+    add_test(NAME TropismRegression COMMAND TropismDemo)
+    set_tests_properties(PlantNumericalRegression PlantPhysicsRegression
+                         DynamicBranchingRegression TropismRegression
+                         PROPERTIES LABELS "numerical;headless" TIMEOUT 30)
+endif()
+
 # Apply a consistent warning/optimization policy to every project target.
 # Debug keeps its debuggability; Release uses optimized code, optional AVX2, and
 # CMake-managed IPO/LTO when the active compiler/linker supports it.
@@ -286,6 +309,9 @@ set(PLANTSIM_PROJECT_TARGETS
     PlantPhysicsDemo
     TropismDemo
 )
+if(BUILD_TESTING)
+    list(APPEND PLANTSIM_PROJECT_TARGETS PlantNumericalRegression)
+endif()
 foreach(target IN LISTS PLANTSIM_PROJECT_TARGETS)
     plantsim_configure_target(${target})
 endforeach()
