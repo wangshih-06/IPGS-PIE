@@ -6,6 +6,8 @@
 #include <algorithm>
 #include <cmath>
 #include <functional>
+#include <future>
+#include <thread>
 
 #include "Plant/PlantModel.h"
 
@@ -38,6 +40,71 @@ float includedAngle(const Vec3& first, const Vec3& second) {
     if (firstLength < kEpsilon || secondLength < kEpsilon) return 0.0f;
     return std::acos(clampCosine(first.dot(second) / (firstLength * secondLength)));
 }
+
+// Greedily color constraints by their referenced particles. A color is an
+// independent set, so every constraint in its batch may write to the shared
+// mass-point array concurrently without data races.
+template <typename Constraint, typename Indices>
+std::vector<std::vector<int>> buildIndependentBatches(
+    const std::vector<Constraint>& constraints, std::size_t particleCount, Indices indices) {
+    std::vector<std::vector<int>> batches;
+    std::vector<std::vector<unsigned char>> particleColors(particleCount);
+    for (std::size_t constraintIndex = 0; constraintIndex < constraints.size(); ++constraintIndex) {
+        const std::vector<int> vertices = indices(constraints[constraintIndex]);
+        if (vertices.empty()) continue;
+
+        std::size_t color = 0;
+        for (;; ++color) {
+            bool available = true;
+            for (const int vertex : vertices) {
+                if (vertex >= 0 && vertex < static_cast<int>(particleColors.size()) &&
+                    color < particleColors[vertex].size() && particleColors[vertex][color]) {
+                    available = false;
+                    break;
+                }
+            }
+            if (available) break;
+        }
+        if (batches.size() <= color) batches.resize(color + 1);
+        batches[color].push_back(static_cast<int>(constraintIndex));
+        for (const int vertex : vertices) {
+            if (vertex < 0 || vertex >= static_cast<int>(particleColors.size())) continue;
+            if (particleColors[vertex].size() <= color) particleColors[vertex].resize(color + 1, 0);
+            particleColors[vertex][color] = 1;
+        }
+    }
+    return batches;
+}
+
+// Async work is deliberately reserved for substantial independent batches;
+// short batches are faster and more deterministic on the simulation thread.
+template <typename Projector>
+void projectIndependentBatch(const std::vector<int>& batch, Projector projector) {
+    constexpr std::size_t kParallelThreshold = 192;
+    if (batch.size() < kParallelThreshold) {
+        for (const int index : batch) projector(index);
+        return;
+    }
+
+    const unsigned int hardwareThreads = std::thread::hardware_concurrency();
+    const std::size_t workerCount = std::min<std::size_t>(
+        8, std::min<std::size_t>(batch.size(), hardwareThreads == 0 ? 2 : hardwareThreads));
+    if (workerCount < 2) {
+        for (const int index : batch) projector(index);
+        return;
+    }
+
+    std::vector<std::future<void>> workers;
+    workers.reserve(workerCount);
+    for (std::size_t worker = 0; worker < workerCount; ++worker) {
+        const std::size_t begin = batch.size() * worker / workerCount;
+        const std::size_t end = batch.size() * (worker + 1) / workerCount;
+        workers.emplace_back(std::async(std::launch::async, [begin, end, &batch, &projector]() {
+            for (std::size_t i = begin; i < end; ++i) projector(batch[i]);
+        }));
+    }
+    for (std::future<void>& worker : workers) worker.get();
+}
 }
 
 PlantPhysicsSolver::PlantPhysicsSolver(const PlantPhysicsSettings& settings) {
@@ -62,6 +129,9 @@ void PlantPhysicsSolver::clear() {
     lengthConstraints_.clear();
     bendingConstraints_.clear();
     branchAngleConstraints_.clear();
+    lengthConstraintBatches_.clear();
+    bendingConstraintBatches_.clear();
+    branchAngleConstraintBatches_.clear();
     nodeToParticle_.clear();
     statistics_ = PlantPhysicsStatistics{};
 }
@@ -142,23 +212,39 @@ bool PlantPhysicsSolver::rebuildFromPlant(const PlantModel& model, QString* erro
             addConstraints(child);
         }
 
-        for (std::size_t first = 0; first < childIndices.size(); ++first) {
-            for (std::size_t second = first + 1; second < childIndices.size(); ++second) {
-                PlantBranchAngleConstraint angle;
-                angle.parentIndex = parentIt->second;
-                angle.firstChildIndex = childIndices[first];
-                angle.secondChildIndex = childIndices[second];
-                const Vec3 firstDirection = massPoints_[angle.firstChildIndex].position -
-                                            massPoints_[angle.parentIndex].position;
-                const Vec3 secondDirection = massPoints_[angle.secondChildIndex].position -
-                                             massPoints_[angle.parentIndex].position;
-                angle.restAngleRadians = includedAngle(firstDirection, secondDirection);
-                angle.stiffness = settings_.defaultBranchAngleStiffness;
-                branchAngleConstraints_.push_back(angle);
+        auto addBranchAngle = [&](int firstChild, int secondChild) {
+            PlantBranchAngleConstraint angle;
+            angle.parentIndex = parentIt->second;
+            angle.firstChildIndex = firstChild;
+            angle.secondChildIndex = secondChild;
+            const Vec3 firstDirection = massPoints_[angle.firstChildIndex].position -
+                                        massPoints_[angle.parentIndex].position;
+            const Vec3 secondDirection = massPoints_[angle.secondChildIndex].position -
+                                         massPoints_[angle.parentIndex].position;
+            angle.restAngleRadians = includedAngle(firstDirection, secondDirection);
+            angle.stiffness = settings_.defaultBranchAngleStiffness;
+            branchAngleConstraints_.push_back(angle);
+        };
+        constexpr std::size_t kDenseBranchAngleLimit = 4;
+        if (childIndices.size() <= kDenseBranchAngleLimit) {
+            // Small junctions retain every sibling-pair constraint.
+            for (std::size_t first = 0; first < childIndices.size(); ++first) {
+                for (std::size_t second = first + 1; second < childIndices.size(); ++second) {
+                    addBranchAngle(childIndices[first], childIndices[second]);
+                }
             }
+        } else {
+            // A high-fanout junction formerly generated O(n^2) sibling pairs.
+            // Consecutive child arms plus a closing pair preserve the ordered
+            // branch fan using only O(n) angle constraints.
+            for (std::size_t child = 1; child < childIndices.size(); ++child) {
+                addBranchAngle(childIndices[child - 1], childIndices[child]);
+            }
+            addBranchAngle(childIndices.front(), childIndices.back());
         }
     };
     addConstraints(root);
+    rebuildConstraintBatches();
 
     updateStatistics();
     if (massPoints_.empty()) {
@@ -252,6 +338,25 @@ bool PlantPhysicsSolver::setParticlePosition(int nodeId, const Vec3& position, b
     return true;
 }
 
+void PlantPhysicsSolver::rebuildConstraintBatches() {
+    const std::size_t particleCount = massPoints_.size();
+    lengthConstraintBatches_ = buildIndependentBatches(
+        lengthConstraints_, particleCount, [](const PlantLengthConstraint& constraint) {
+            return std::vector<int>{constraint.parentIndex, constraint.childIndex};
+        });
+    bendingConstraintBatches_ = buildIndependentBatches(
+        bendingConstraints_, particleCount, [](const PlantBendingConstraint& constraint) {
+            // The joint is kept for dependency ordering even though the current
+            // chord projection only adjusts the base and tip endpoints.
+            return std::vector<int>{constraint.baseIndex, constraint.jointIndex, constraint.tipIndex};
+        });
+    branchAngleConstraintBatches_ = buildIndependentBatches(
+        branchAngleConstraints_, particleCount, [](const PlantBranchAngleConstraint& constraint) {
+            return std::vector<int>{constraint.parentIndex, constraint.firstChildIndex,
+                                    constraint.secondChildIndex};
+        });
+}
+
 void PlantPhysicsSolver::projectLengthConstraint(const PlantLengthConstraint& constraint) {
     if (constraint.parentIndex < 0 || constraint.childIndex < 0 ||
         constraint.parentIndex >= static_cast<int>(massPoints_.size()) ||
@@ -329,18 +434,34 @@ void PlantPhysicsSolver::projectBranchAngleConstraint(const PlantBranchAngleCons
     secondChild.predictedPosition -= secondChild.inverseMass * multiplier * secondGradient;
 }
 
+void PlantPhysicsSolver::projectLengthBatches() {
+    for (const std::vector<int>& batch : lengthConstraintBatches_) {
+        projectIndependentBatch(batch, [this](int index) { projectLengthConstraint(lengthConstraints_[index]); });
+    }
+}
+
+void PlantPhysicsSolver::projectBendingBatches() {
+    for (const std::vector<int>& batch : bendingConstraintBatches_) {
+        projectIndependentBatch(batch, [this](int index) { projectBendingConstraint(bendingConstraints_[index]); });
+    }
+}
+
+void PlantPhysicsSolver::projectBranchAngleBatches() {
+    for (const std::vector<int>& batch : branchAngleConstraintBatches_) {
+        projectIndependentBatch(batch, [this](int index) { projectBranchAngleConstraint(branchAngleConstraints_[index]); });
+    }
+}
+
 void PlantPhysicsSolver::projectConstraints(int iterations) {
     const int count = iterations < 0 ? settings_.solverIterations : std::max(1, iterations);
     for (int iteration = 0; iteration < count; ++iteration) {
-        for (const PlantLengthConstraint& constraint : lengthConstraints_) projectLengthConstraint(constraint);
-        for (const PlantBendingConstraint& constraint : bendingConstraints_) projectBendingConstraint(constraint);
-        for (const PlantBranchAngleConstraint& constraint : branchAngleConstraints_) {
-            projectBranchAngleConstraint(constraint);
-        }
+        projectLengthBatches();
+        projectBendingBatches();
+        projectBranchAngleBatches();
         // Angle and bending projections can slightly perturb branch lengths.
         // Finish each PBD iteration with a distance pass to keep the skeleton
         // edges tight, including after the final iteration.
-        for (const PlantLengthConstraint& constraint : lengthConstraints_) projectLengthConstraint(constraint);
+        projectLengthBatches();
     }
     statistics_.iterationsUsed = count;
     updateStatistics();
@@ -348,9 +469,7 @@ void PlantPhysicsSolver::projectConstraints(int iterations) {
 
 void PlantPhysicsSolver::projectLengthConstraints(int iterations) {
     const int count = iterations < 0 ? settings_.solverIterations : std::max(1, iterations);
-    for (int iteration = 0; iteration < count; ++iteration) {
-        for (const PlantLengthConstraint& constraint : lengthConstraints_) projectLengthConstraint(constraint);
-    }
+    for (int iteration = 0; iteration < count; ++iteration) projectLengthBatches();
     statistics_.iterationsUsed = count;
     updateStatistics();
 }

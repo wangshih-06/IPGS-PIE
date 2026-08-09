@@ -2,6 +2,7 @@
 // PlantPhysicsDemo - Week 13 PBD structural constraint regression check
 // ============================================================================
 #include <cmath>
+#include <vector>
 
 #include <QCoreApplication>
 #include <QDebug>
@@ -117,6 +118,29 @@ int main(int argc, char** argv) {
         debug.branchAngleConstraints.size() != static_cast<std::size_t>(initial.branchAngleConstraintCount)) {
         qCritical().noquote() << "FAILED: debug snapshot is incomplete.";
         return 9;
+    }
+
+    // Regression for high-fanout junctions: six sibling arms would formerly
+    // allocate 15 all-pairs angle constraints. The sparse ring needs only six.
+    PlantModel fanPlant;
+    PlantNode* fanRoot = fanPlant.createRootNode(Vec3::Zero(), Vec3::UnitY(), 0.18f);
+    std::vector<PlantNode*> fanChildren;
+    for (int child = 0; fanRoot && child < 6; ++child) {
+        const float radians = 2.0f * 3.14159265358979323846f * static_cast<float>(child) / 6.0f;
+        const Vec3 direction = Vec3(std::cos(radians), 0.65f, std::sin(radians)).normalized();
+        fanChildren.push_back(fanPlant.addNode(fanRoot->id, direction, direction, 0.055f, 0.9f));
+    }
+    if (!fanRoot || fanChildren.size() != 6 ||
+        std::any_of(fanChildren.begin(), fanChildren.end(), [](const PlantNode* node) { return node == nullptr; })) {
+        qCritical().noquote() << "FAILED: cannot create high-fanout regression plant.";
+        return 10;
+    }
+    PlantPhysicsSolver fanSolver(settings);
+    if (!fanSolver.rebuildFromPlant(fanPlant, &error) ||
+        fanSolver.statistics().branchAngleConstraintCount != 6 ||
+        fanSolver.statistics().branchAngleConstraintCount >= 15) {
+        qCritical().noquote() << "FAILED: high-fanout angle constraints were not sparsified.";
+        return 11;
     }
 
     qInfo().noquote() << QStringLiteral(

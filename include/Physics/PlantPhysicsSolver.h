@@ -159,16 +159,26 @@ public:
 private:
     float nodeMass(float radius, float segmentLength) const;
     float branchStiffnessForChild(const PlantModel& model, int childNodeId) const;
+    // Constraints in one batch have no mass point in common. This permits a
+    // Jacobi-style parallel projection within a batch while color batches are
+    // still processed in dependency order.
+    void rebuildConstraintBatches();
     void updateStatistics();
     void projectLengthConstraint(const PlantLengthConstraint& constraint);
     void projectBendingConstraint(const PlantBendingConstraint& constraint);
     void projectBranchAngleConstraint(const PlantBranchAngleConstraint& constraint);
+    void projectLengthBatches();
+    void projectBendingBatches();
+    void projectBranchAngleBatches();
 
     PlantPhysicsSettings settings_;
     std::vector<PlantMassPoint> massPoints_;
     std::vector<PlantLengthConstraint> lengthConstraints_;
     std::vector<PlantBendingConstraint> bendingConstraints_;
     std::vector<PlantBranchAngleConstraint> branchAngleConstraints_;
+    std::vector<std::vector<int>> lengthConstraintBatches_;
+    std::vector<std::vector<int>> bendingConstraintBatches_;
+    std::vector<std::vector<int>> branchAngleConstraintBatches_;
     std::unordered_map<int, int> nodeToParticle_;
     PlantPhysicsStatistics statistics_;
 };
