@@ -474,7 +474,8 @@ void PlantPhysicsSolver::projectLengthConstraints(int iterations) {
     updateStatistics();
 }
 
-void PlantPhysicsSolver::step(float deltaSeconds, const Vec3& externalAcceleration) {
+void PlantPhysicsSolver::step(float deltaSeconds, const Vec3& externalAcceleration,
+                              const ExternalAccelerationField& externalField) {
     if (massPoints_.empty()) return;
     const Vec3 acceleration = settings_.gravity +
                               (externalAcceleration.allFinite() ? externalAcceleration : Vec3::Zero());
@@ -491,7 +492,12 @@ void PlantPhysicsSolver::step(float deltaSeconds, const Vec3& externalAccelerati
                 point.velocity = Vec3::Zero();
                 continue;
             }
-            point.velocity += acceleration * subStep;
+            Vec3 pointAcceleration = acceleration;
+            if (externalField) {
+                const Vec3 localAcceleration = externalField(point.position, point.nodeId);
+                if (localAcceleration.allFinite()) pointAcceleration += localAcceleration;
+            }
+            point.velocity += pointAcceleration * subStep;
             point.predictedPosition = point.position + point.velocity * subStep;
         }
 

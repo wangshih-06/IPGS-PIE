@@ -4,6 +4,7 @@
 // ============================================================================
 #pragma once
 
+#include <functional>
 #include <unordered_map>
 #include <vector>
 
@@ -137,7 +138,10 @@ public:
 
     // Integrates external acceleration then projects all PBD constraints.
     // Passing a non-positive delta only performs a constraint projection.
-    void step(float deltaSeconds, const Vec3& externalAcceleration = Vec3::Zero());
+    using ExternalAccelerationField = std::function<Vec3(const Vec3& position, int nodeId)>;
+    // Optional field adds position-dependent acceleration per mass point.
+    void step(float deltaSeconds, const Vec3& externalAcceleration = Vec3::Zero(),
+              const ExternalAccelerationField& externalField = ExternalAccelerationField());
     void projectConstraints(int iterations = -1);
     void projectLengthConstraints(int iterations = -1);
     void resetDynamics();

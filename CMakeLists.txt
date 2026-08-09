@@ -70,11 +70,13 @@ add_library(PlantGrowth STATIC
     src/Engine/GrowthEventManager.cpp
     src/Engine/GrowthKeyframeStore.cpp
     src/Engine/GrowthDataRecorder.cpp
+    src/Engine/WindField.cpp
     include/Engine/DynamicBranchingSystem.h
     include/Engine/EnvironmentParams.h
     include/Engine/GrowthEventManager.h
     include/Engine/GrowthKeyframeStore.h
     include/Engine/GrowthDataRecorder.h
+    include/Engine/WindField.h
     include/Engine/GrowthTimeline.h
     include/Engine/GrowthClock.h
     include/Engine/GrowthStateReport.h

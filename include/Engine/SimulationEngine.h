@@ -18,6 +18,7 @@
 #include "Engine/GrowthEventManager.h"
 #include "Engine/GrowthKeyframeStore.h"
 #include "Engine/GrowthTimeline.h"
+#include "Engine/WindField.h"
 #include "Geometry/MarchingCubes.h"
 #include "Implicit/MetaballField.h"
 #include "Plant/PlantModel.h"
@@ -121,6 +122,7 @@ private:
     GrowthEventManager growthEvents_;
     GrowthKeyframeStore keyframes_;
     GrowthDataRecorder growthData_;
+    PerlinWindField windField_;
     PlantPhysicsSolver physicsSolver_;
     bool physicsEnabled_ = false;
     bool physicsDebugEnabled_ = false;

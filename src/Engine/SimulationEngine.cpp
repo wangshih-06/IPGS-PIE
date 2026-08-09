@@ -278,11 +278,10 @@ void SimulationEngine::onGrowthTickProduced(const GrowthSample& sample) {
         if (!physicsSolver_.synchronizeRestConfiguration(plantModel_, &physicsError)) {
             qWarning().noquote() << QStringLiteral("Plant physics synchronization failed: %1").arg(physicsError);
         } else if (physicsEnabled_) {
-            const float phase = sample.age * 1.7f;
-            const Vec3 wind(std::sin(phase) * environment_.windIntensity * 1.8f,
-                            0.0f,
-                            std::cos(phase * 0.73f) * environment_.windIntensity * 1.2f);
-            physicsSolver_.step(1.0f / 60.0f, wind);
+            physicsSolver_.step(1.0f / 60.0f, Vec3::Zero(),
+                [this, &sample](const Vec3& position, int) {
+                    return windField_.sample(position, sample.age, environment_.windIntensity);
+                });
             if (!physicsSolver_.applyToPlant(&plantModel_, &physicsError)) {
                 qWarning().noquote() << QStringLiteral("Plant physics application failed: %1").arg(physicsError);
             }
