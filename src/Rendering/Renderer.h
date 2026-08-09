@@ -6,6 +6,8 @@
 #include <QPoint>
 #include <QVector>
 
+#include "Editing/GizmoRenderer.h"
+#include "Editing/RayPicker.h"
 #include "Engine/EnvironmentParams.h"
 #include "Rendering/Camera.h"
 #include "Rendering/Light.h"
@@ -32,6 +34,12 @@ public slots:
     void clearPlantSurface();
     void setPhysicsDebugSnapshot(const PlantPhysicsDebugSnapshot& snapshot);
     void setPhysicsDebugVisible(bool visible);
+    void setPickablePlant(const PlantModel* model);
+    void setEditPickMode(EditPickMode mode);
+
+signals:
+    void nodeSelected(int nodeId, int parentId, int depth, float length, float radius);
+    void selectionCleared();
 
 protected:
     void initializeGL() override;
@@ -39,6 +47,7 @@ protected:
     void paintGL() override;
     void mousePressEvent(QMouseEvent* event) override;
     void mouseMoveEvent(QMouseEvent* event) override;
+    void mouseReleaseEvent(QMouseEvent* event) override;
     void wheelEvent(QWheelEvent* event) override;
 
 private:
@@ -48,20 +57,32 @@ private:
     void uploadPlantMeshIfNeeded();
     void buildPhysicsDebugMesh(const PlantPhysicsDebugSnapshot& snapshot);
     void uploadPhysicsDebugMeshIfNeeded();
+    void rebuildEditGizmo();
+    void buildEditGizmoMesh(const GizmoRenderData& data);
+    Mat4 sceneModelMatrix() const;
+    EditRay rayAt(const QPoint& point) const;
+    void updateHoverAt(const QPoint& point);
+    void selectAt(const QPoint& point);
 
     Shader shader_;
     Mesh mesh_;
     Mesh plantMesh_;
     Mesh physicsDebugMesh_;
+    Mesh editGizmoMesh_;
     bool hasPlantMesh_ = false;
     bool plantMeshUploaded_ = false;
     bool hasPhysicsDebugMesh_ = false;
     bool physicsDebugMeshUploaded_ = false;
+    bool editGizmoMeshUploaded_ = false;
     bool physicsDebugVisible_ = false;
     Camera camera_;
     Light light_;
     EnvironmentParams environment_;
     QElapsedTimer clock_;
     QPoint lastMousePosition_;
+    QPoint mousePressPosition_;
+    const PlantModel* pickablePlant_ = nullptr;
+    SelectionManager selection_;
+    GizmoRenderData editGizmoData_;
     bool autoRotate_ = true;
 };

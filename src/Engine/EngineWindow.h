@@ -28,6 +28,7 @@ private slots:
     void onGraviSliderChanged(int value);
     void onTropismUpdated(float photoWeight, float graviWeight);
     void onPhysicsDebugUpdated(const PlantPhysicsDebugSnapshot& snapshot);
+    void onNodeSelected(int nodeId, int parentId, int depth, float length, float radius);
 
     // 生长时间轴 UI
     void onStartClicked();
@@ -53,6 +54,7 @@ private:
     QSlider* graviSlider_ = nullptr;
     QLabel* graviValueLabel_ = nullptr;
     QLabel* physicsStatsValueLabel_ = nullptr;
+    QLabel* selectionValueLabel_ = nullptr;
 
     // 生长时间轴控件
     QPushButton* startButton_ = nullptr;

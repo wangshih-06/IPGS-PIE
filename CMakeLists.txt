@@ -114,8 +114,12 @@ target_link_libraries(PlantGeometry PUBLIC PlantImplicitSurface Qt5::Core)
 
 add_library(PlantEditing STATIC
     src/Editing/RayPicker.cpp
+    src/Editing/SelectionManager.cpp
+    src/Editing/GizmoRenderer.cpp
     include/Editing/EditTypes.h
     include/Editing/RayPicker.h
+    include/Editing/SelectionManager.h
+    include/Editing/GizmoRenderer.h
 )
 target_include_directories(PlantEditing PUBLIC
     ${CMAKE_SOURCE_DIR}/include
@@ -145,6 +149,7 @@ target_link_libraries(PlantSimulationSystem PRIVATE
     PlantGrowth
     PlantPhysics
     PlantGeometry
+    PlantEditing
     Qt5::Widgets
     Qt5::OpenGL
     Qt5::Network

@@ -2,6 +2,7 @@
 #include <cstdlib>
 #include <iostream>
 
+#include "Editing/GizmoRenderer.h"
 #include "Editing/RayPicker.h"
 
 namespace {
@@ -41,6 +42,22 @@ int main() {
     const EditPickResult wholePick = RayPicker::pick(model, nodeRay, EditPickMode::WholePlant);
     require(wholePick.hit && wholePick.wholePlant, "whole-plant mode should still report a hit");
     require(wholePick.nodeId == root->id, "whole-plant mode should select root node");
+
+    SelectionManager selection;
+    require(selection.updateHover(nodePick), "hover should accept a new pick");
+    require(selection.selectHovered(), "selected state should copy hovered pick");
+    require(selection.hasSelection() && selection.selected().nodeId == node1->id,
+            "selection should preserve picked node");
+    const GizmoRenderData nodeGizmo = GizmoRenderer::build(model, selection);
+    require(nodeGizmo.primitives.size() >= 5, "node selection should draw hover sphere, selected sphere and axes");
+    selection.setPickMode(EditPickMode::WholePlant);
+    require(selection.select(wholePick), "whole-plant result should replace node selection");
+    const GizmoRenderData wholeGizmo = GizmoRenderer::build(model, selection);
+    bool hasBounds = false;
+    for (const GizmoPrimitive& primitive : wholeGizmo.primitives) {
+        hasBounds = hasBounds || primitive.type == GizmoPrimitiveType::BoundingBox;
+    }
+    require(hasBounds, "whole-plant selection should include a bounding box");
 
     const EditRay centerRay = RayPicker::screenToWorldRay(50.0f, 50.0f, 100.0f, 100.0f,
                                                             Mat4::Identity(), Mat4::Identity());

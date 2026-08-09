@@ -9,6 +9,8 @@
 #include <QWheelEvent>
 
 #include <algorithm>
+#include <array>
+#include <cmath>
 
 #include <Eigen/Geometry>
 
@@ -59,6 +61,45 @@ void addCylinder(QVector<Vertex>& vertices, const Vec3& start, const Vec3& end,
         const Vec3 normal = (endRing[i] - startRing[i]).cross(endRing[next] - startRing[i]).normalized();
         addFace(vertices, startRing[i], endRing[i], endRing[next], startRing[next], normal, color);
     }
+}
+
+void addSphere(QVector<Vertex>& vertices, const Vec3& center, float radius, const Vec3& color) {
+    constexpr int kRings = 7;
+    constexpr int kSegments = 12;
+    for (int ring = 0; ring < kRings; ++ring) {
+        const float v0 = static_cast<float>(ring) / kRings;
+        const float v1 = static_cast<float>(ring + 1) / kRings;
+        const float theta0 = static_cast<float>(M_PI) * v0;
+        const float theta1 = static_cast<float>(M_PI) * v1;
+        for (int segment = 0; segment < kSegments; ++segment) {
+            const float u0 = static_cast<float>(segment) / kSegments;
+            const float u1 = static_cast<float>(segment + 1) / kSegments;
+            const float phi0 = 2.0f * static_cast<float>(M_PI) * u0;
+            const float phi1 = 2.0f * static_cast<float>(M_PI) * u1;
+            const Vec3 n00(std::sin(theta0) * std::cos(phi0), std::cos(theta0), std::sin(theta0) * std::sin(phi0));
+            const Vec3 n10(std::sin(theta0) * std::cos(phi1), std::cos(theta0), std::sin(theta0) * std::sin(phi1));
+            const Vec3 n11(std::sin(theta1) * std::cos(phi1), std::cos(theta1), std::sin(theta1) * std::sin(phi1));
+            const Vec3 n01(std::sin(theta1) * std::cos(phi0), std::cos(theta1), std::sin(theta1) * std::sin(phi0));
+            addVertex(vertices, center + n00 * radius, n00, color);
+            addVertex(vertices, center + n10 * radius, n10, color);
+            addVertex(vertices, center + n11 * radius, n11, color);
+            addVertex(vertices, center + n00 * radius, n00, color);
+            addVertex(vertices, center + n11 * radius, n11, color);
+            addVertex(vertices, center + n01 * radius, n01, color);
+        }
+    }
+}
+
+void addBoundingBox(QVector<Vertex>& vertices, const Vec3& minimum, const Vec3& maximum, const Vec3& color) {
+    const std::array<Vec3, 8> corners = {
+        Vec3(minimum.x(), minimum.y(), minimum.z()), Vec3(maximum.x(), minimum.y(), minimum.z()),
+        Vec3(maximum.x(), maximum.y(), minimum.z()), Vec3(minimum.x(), maximum.y(), minimum.z()),
+        Vec3(minimum.x(), minimum.y(), maximum.z()), Vec3(maximum.x(), minimum.y(), maximum.z()),
+        Vec3(maximum.x(), maximum.y(), maximum.z()), Vec3(minimum.x(), maximum.y(), maximum.z())};
+    constexpr std::array<std::array<int, 2>, 12> edges = {{{0, 1}, {1, 2}, {2, 3}, {3, 0},
+                                                            {4, 5}, {5, 6}, {6, 7}, {7, 4},
+                                                            {0, 4}, {1, 5}, {2, 6}, {3, 7}}};
+    for (const auto& edge : edges) addCylinder(vertices, corners[edge[0]], corners[edge[1]], 0.01f, color);
 }
 
 void addCalibrationCube(QVector<Vertex>& vertices) {
@@ -138,9 +179,7 @@ void Renderer::paintGL() {
         return;
     }
 
-    const float seconds = autoRotate_ ? static_cast<float>(clock_.elapsed()) / 1000.0f : 0.0f;
-    Mat4 model = Mat4::Identity();
-    model.block<3, 3>(0, 0) = Eigen::AngleAxisf(seconds * 0.14f, Vec3::UnitY()).toRotationMatrix();
+    const Mat4 model = sceneModelMatrix();
     const Mat4 mvp = camera_.projectionMatrix() * camera_.viewMatrix() * model;
     const Vec3 cameraPosition = camera_.position();
     auto& program = shader_.program();
@@ -158,6 +197,13 @@ void Renderer::paintGL() {
     if (physicsDebugVisible_ && hasPhysicsDebugMesh_) {
         uploadPhysicsDebugMeshIfNeeded();
         physicsDebugMesh_.draw(this);
+    }
+    if (!editGizmoData_.empty()) {
+        if (!editGizmoMeshUploaded_) {
+            editGizmoMesh_.upload(this);
+            editGizmoMeshUploaded_ = true;
+        }
+        editGizmoMesh_.draw(this);
     }
     shader_.release();
 }
@@ -264,6 +310,18 @@ void Renderer::setPhysicsDebugVisible(bool visible) {
     update();
 }
 
+void Renderer::setPickablePlant(const PlantModel* model) {
+    pickablePlant_ = model;
+    selection_.clearHover();
+    selection_.clearSelection();
+    rebuildEditGizmo();
+}
+
+void Renderer::setEditPickMode(EditPickMode mode) {
+    selection_.setPickMode(mode);
+    rebuildEditGizmo();
+}
+
 void Renderer::buildPhysicsDebugMesh(const PlantPhysicsDebugSnapshot& snapshot) {
     QVector<MeshVertex> vertices;
     vertices.reserve(static_cast<int>(snapshot.lengthSegments.size() * 48 +
@@ -350,8 +408,75 @@ void Renderer::setAutoRotate(bool enabled) {
     update();
 }
 
+Mat4 Renderer::sceneModelMatrix() const {
+    Mat4 model = Mat4::Identity();
+    const float seconds = autoRotate_ ? static_cast<float>(clock_.elapsed()) / 1000.0f : 0.0f;
+    model.block<3, 3>(0, 0) = Eigen::AngleAxisf(seconds * 0.14f, Vec3::UnitY()).toRotationMatrix();
+    return model;
+}
+
+EditRay Renderer::rayAt(const QPoint& point) const {
+    EditRay worldRay = RayPicker::screenToWorldRay(static_cast<float>(point.x()), static_cast<float>(point.y()),
+                                                    static_cast<float>(width()), static_cast<float>(height()),
+                                                    camera_.viewMatrix(), camera_.projectionMatrix());
+    const Mat4 inverseModel = sceneModelMatrix().inverse();
+    const Vec4 origin = inverseModel * Vec4(worldRay.origin.x(), worldRay.origin.y(), worldRay.origin.z(), 1.0f);
+    const Vec3 direction = inverseModel.block<3, 3>(0, 0) * worldRay.direction;
+    if (std::abs(origin.w()) < 1.0e-6f || direction.squaredNorm() < 1.0e-6f) return {};
+    return {origin.head<3>() / origin.w(), direction.normalized()};
+}
+
+void Renderer::rebuildEditGizmo() {
+    editGizmoData_ = pickablePlant_ ? GizmoRenderer::build(*pickablePlant_, selection_) : GizmoRenderData{};
+    buildEditGizmoMesh(editGizmoData_);
+    update();
+}
+
+void Renderer::buildEditGizmoMesh(const GizmoRenderData& gizmoData) {
+    QVector<Vertex> vertices;
+    for (const GizmoPrimitive& primitive : gizmoData.primitives) {
+        switch (primitive.type) {
+        case GizmoPrimitiveType::Sphere:
+            addSphere(vertices, primitive.start, primitive.radius, primitive.color);
+            break;
+        case GizmoPrimitiveType::Axis:
+            addCylinder(vertices, primitive.start, primitive.end, 0.016f, primitive.color);
+            break;
+        case GizmoPrimitiveType::BoundingBox:
+            addBoundingBox(vertices, primitive.boundsMin, primitive.boundsMax, primitive.color);
+            break;
+        }
+    }
+    editGizmoMesh_.setVertices(vertices);
+    editGizmoMeshUploaded_ = false;
+}
+
+void Renderer::updateHoverAt(const QPoint& point) {
+    if (!pickablePlant_) return;
+    const EditPickResult pick = RayPicker::pick(*pickablePlant_, rayAt(point), selection_.pickMode());
+    if (selection_.updateHover(pick)) rebuildEditGizmo();
+}
+
+void Renderer::selectAt(const QPoint& point) {
+    if (!pickablePlant_) return;
+    const EditPickResult pick = RayPicker::pick(*pickablePlant_, rayAt(point), selection_.pickMode());
+    if (!selection_.select(pick)) return;
+    rebuildEditGizmo();
+    if (!pick.hit) {
+        emit selectionCleared();
+        return;
+    }
+    const PlantNode* node = pickablePlant_->findNode(pick.nodeId);
+    if (!node) {
+        emit selectionCleared();
+        return;
+    }
+    emit nodeSelected(node->id, node->parentId, node->depth, node->length, node->radius);
+}
+
 void Renderer::mousePressEvent(QMouseEvent* event) {
     lastMousePosition_ = event->pos();
+    mousePressPosition_ = event->pos();
     event->accept();
 }
 
@@ -362,8 +487,17 @@ void Renderer::mouseMoveEvent(QMouseEvent* event) {
         camera_.rotate(delta.x() * 0.008f, delta.y() * 0.008f);
     } else if (event->buttons() & Qt::MiddleButton) {
         camera_.pan(Vec2(-delta.x() * 0.01f, delta.y() * 0.01f));
+    } else {
+        updateHoverAt(event->pos());
     }
     update();
+    event->accept();
+}
+
+void Renderer::mouseReleaseEvent(QMouseEvent* event) {
+    if (event->button() == Qt::LeftButton && (event->pos() - mousePressPosition_).manhattanLength() <= 3) {
+        selectAt(event->pos());
+    }
     event->accept();
 }
 

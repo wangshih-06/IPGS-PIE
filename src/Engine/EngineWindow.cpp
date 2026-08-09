@@ -91,6 +91,7 @@ EngineWindow::EngineWindow(SimulationEngine* simulationEngine, QWidget* parent)
     contentLayout->setSpacing(16);
 
     renderer_ = new Renderer(content);
+    renderer_->setPickablePlant(&simulationEngine_->plantModel());
     renderer_->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
     contentLayout->addWidget(renderer_, 1);
 
@@ -255,6 +256,9 @@ EngineWindow::EngineWindow(SimulationEngine* simulationEngine, QWidget* parent)
     addMetric(inspectorLayout, QStringLiteral("Metaball nodes"), QString::number(nodeSourceCount), inspector);
     inspectorLayout->addSpacing(10);
     addMetric(inspectorLayout, QStringLiteral("Segment sources"), QString::number(segmentSourceCount), inspector);
+    inspectorLayout->addSpacing(10);
+    addMetric(inspectorLayout, QStringLiteral("Selection"), QStringLiteral("None"), inspector);
+    selectionValueLabel_ = qobject_cast<QLabel*>(inspectorLayout->itemAt(inspectorLayout->count() - 1)->layout()->itemAt(1)->widget());
     inspectorLayout->addSpacing(18);
     inspectorLayout->addWidget(createDivider(inspector));
     inspectorLayout->addSpacing(18);
@@ -280,6 +284,10 @@ EngineWindow::EngineWindow(SimulationEngine* simulationEngine, QWidget* parent)
     connect(lightSlider_, &QSlider::valueChanged, this, &EngineWindow::onLightSliderChanged);
     connect(photoSlider_, &QSlider::valueChanged, this, &EngineWindow::onPhotoSliderChanged);
     connect(graviSlider_, &QSlider::valueChanged, this, &EngineWindow::onGraviSliderChanged);
+    connect(renderer_, &Renderer::nodeSelected, this, &EngineWindow::onNodeSelected);
+    connect(renderer_, &Renderer::selectionCleared, this, [this]() {
+        if (selectionValueLabel_) selectionValueLabel_->setText(QStringLiteral("None"));
+    });
 
     connect(simulationEngine_, &SimulationEngine::environmentUpdated,
             this, &EngineWindow::onEnvironmentUpdated);
@@ -398,6 +406,16 @@ void EngineWindow::onTropismUpdated(float photoWeight, float graviWeight) {
     if (graviValueLabel_) {
         graviValueLabel_->setText(QStringLiteral("%1").arg(graviWeight, 0, 'f', 2));
     }
+}
+
+void EngineWindow::onNodeSelected(int nodeId, int parentId, int depth, float length, float radius) {
+    if (selectionValueLabel_) {
+        selectionValueLabel_->setText(QStringLiteral("#%1 p:%2 d:%3 L:%4 R:%5")
+            .arg(nodeId).arg(parentId).arg(depth)
+            .arg(length, 0, 'f', 2).arg(radius, 0, 'f', 2));
+    }
+    statusBar()->showMessage(QStringLiteral("Selected node #%1 (parent %2, depth %3)")
+        .arg(nodeId).arg(parentId).arg(depth), 2500);
 }
 
 void EngineWindow::onPhysicsDebugUpdated(const PlantPhysicsDebugSnapshot& snapshot) {
