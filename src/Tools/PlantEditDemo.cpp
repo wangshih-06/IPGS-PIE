@@ -2,12 +2,14 @@
 #include <cstdlib>
 #include <iostream>
 
+#include "Editing/BendTool.h"
 #include "Editing/GizmoRenderer.h"
 #include "Editing/RayPicker.h"
 #include "Editing/ScaleTool.h"
 
 namespace {
 constexpr float kTolerance = 1.0e-4f;
+constexpr float kHalfPi = 1.57079632679f;
 
 void require(bool condition, const char* message) {
     if (condition) return;
@@ -81,6 +83,26 @@ int main() {
     require(ScaleTool::apply(model, root->id, axisScale, &scaleError), "axis scale should be valid");
     require(model.findNode(node2->id)->direction.isApprox(Vec3::UnitX(), kTolerance),
             "axis scale should transform and normalize directions");
+
+    const Vec3 bendPivot = model.findNode(node1->id)->position;
+    const Vec3 originalNode3Position = model.findNode(node3->id)->position;
+    BendParams bend;
+    bend.angleRadians = kHalfPi;
+    bend.bendAxis = Vec3::UnitZ();
+    bend.stiffness = 1.0f;
+    bend.maximumAngleRadians = kHalfPi;
+    const BendCurve curve = BendTool::previewCurve(model, node3->id, bend, &scaleError);
+    require(curve.sample(0.0f).isApprox(bendPivot, kTolerance) &&
+            curve.sample(1.0f).isApprox(Vec3(-2.0f, 1.0f, 0.0f), kTolerance),
+            "Bezier bend preview should retain start and rotated end");
+    require(BendTool::apply(model, node3->id, bend, &scaleError), "bend should be valid");
+    require(model.findNode(node3->id)->position.isApprox(Vec3(-2.0f, 1.0f, 0.0f), kTolerance),
+            "bend should rotate selected branch endpoint around parent");
+    require(close((model.findNode(node3->id)->position - bendPivot).norm(),
+                  (originalNode3Position - bendPivot).norm()),
+            "bend should preserve branch length");
+    require(model.findNode(node3->id)->parentId == node1->id,
+            "bend must keep parent-child topology intact");
 
     const EditRay centerRay = RayPicker::screenToWorldRay(50.0f, 50.0f, 100.0f, 100.0f,
                                                             Mat4::Identity(), Mat4::Identity());
